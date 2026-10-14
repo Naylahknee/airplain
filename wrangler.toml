@@ -4,6 +4,11 @@ name = "airplain"
 main = "src/worker.js"
 compatibility_date = "2026-10-01"
 
+# Cloudflare Workers Builds now uses wrangler preview for pull-request branches.
+# This enables previews WITHOUT inheriting or exposing production D1 bindings.
+# Configure a separate Preview D1 only after creating and migrating a test DB.
+previews = {}
+
 [vars]
 # Which brain answers /decide. "stub" = the built-in honest heuristic (default).
 # "workers-ai" = Cloudflare Workers AI with an open-weight model.
