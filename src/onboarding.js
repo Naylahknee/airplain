@@ -81,7 +81,7 @@ function publicStatus(row,env) {
   try { routes = JSON.parse(row.routes_json || "{}"); } catch { routes = {}; }
   return {
     ok:true,
-    customer: { name:row.name,business:row.business, fare:row.fare, seat_preference:row.preferred_seat || null },
+    customer: { name:row.name,business:row.business, fare:row.fare, seat_preference:row.preferred_seat || null, application_reference:row.signup_id, approved_at:row.approved_at || null },
     gmail: { connected: Boolean(row.gmail_address && row.gmail_connected_at), address:row.gmail_address || null,available:providerReady(env) },
     microsoft: { connected: Boolean(row.microsoft_address && row.microsoft_connected_at), address:row.microsoft_address || null,available:microsoftReady(env) },
     preferences:routes,
