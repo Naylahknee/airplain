@@ -66,3 +66,6 @@ for (const [name,page] of [["admin",admin],["setup",setup]]) {
 assert.ok(admin.includes('/api/admin/approve'), "Application admin approves through protected backend");
 assert.ok(setup.includes('/api/setup/status') && setup.includes('/api/setup/claim'), "Setup has saved session and invitation claiming");
 assert.ok(setup.includes('/api/setup/gmail/start'), "Gmail uses secure provider authorization");
+assert.ok(setup.includes('/api/setup/microsoft/start'), "Microsoft 365 has its own secure OAuth route");
+assert.ok(setup.includes('id="microsoft-disconnect"'), "Microsoft authorization can be disconnected");
+assert.ok(setup.includes('status[provider]'), "Both connected providers render independent verified statuses");
