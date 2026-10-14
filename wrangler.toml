@@ -1,0 +1,37 @@
+# AirPlain worker config. Local dev only unless someone runs a deploy.
+
+name = "airplain"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+# Which brain answers /decide. "stub" = the built-in honest heuristic (default).
+# "workers-ai" = Cloudflare Workers AI with an open-weight model.
+# If ENGINE is workers-ai but no AI binding exists, the worker falls back
+# to the stub and says so in the response. It never crashes.
+ENGINE = "workers-ai"
+
+# Workers AI needs no extra signup. It is part of the Cloudflare account.
+[ai]
+binding = "AI"
+#
+# To persist decisions and the paper trail across deploys, create one KV
+# namespace and uncomment:
+#
+# [[kv_namespaces]]
+# binding = "AIRPLAIN_KV"
+# id = "PASTE_KV_NAMESPACE_ID_HERE"
+
+# Landing page: served from site/index.html at GET /. API routes above win;
+# everything else falls through to these static assets. Works in wrangler dev.
+[assets]
+directory = "site"
+
+# Pilot signup database. In wrangler dev this uses a LOCAL D1 copy
+# (persisted under .wrangler/state), so local testing never touches the
+# real database. On deploy it binds the real one automatically.
+[[d1_databases]]
+binding = "AIRPLAIN_DB"
+database_name = "airplain"
+database_id = "480edd18-d14b-47ea-96ea-637d14d0404f"
+migrations_dir = "migrations"

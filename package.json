@@ -1,0 +1,1 @@
+{"description":"AirPlain Phase 1: shared decision core. AI routes plus AI notes.","engines":{"node":">=18"},"name":"airplain","scripts":{"dev":"wrangler dev --port 8787","test":"node test/run.mjs"},"type":"module","version":"0.1.0"}
