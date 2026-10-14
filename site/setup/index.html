@@ -1,0 +1,172 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+<title>AirPlain | Your preflight</title>
+<style>
+:root{--bg:#eef0f3;--yellow:#ffd60a;--ink:#16171a;--secondary:#55595f;--line:#e3e6ea;--card:#fff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1050px;margin:auto;padding:22px 18px 70px}a{color:inherit}.brand{display:flex;flex-direction:column;align-items:start;line-height:1;text-decoration:none;font-weight:900;font-size:27px}.ai{background:var(--yellow);border-radius:3px}.brand small{font-size:10px;margin-top:6px;letter-spacing:.04em}
+h1{font-size:clamp(29px,5vw,43px);line-height:1.15;margin:30px 0 6px}h2{font-size:clamp(20px,3vw,27px);margin:0 0 7px}h3{margin:0 0 12px}
+p{margin:8px 0 14px}.muted{color:var(--secondary)}.card{border-radius:18px;background:var(--card);padding:24px;margin-top:16px;box-shadow:0 12px 32px -16px #0002}
+button,.button{display:inline-flex;justify-content:center;align-items:center;min-height:46px;background:var(--yellow);border:2px solid var(--ink);border-radius:10px;padding:8px 16px;color:var(--ink);text-decoration:none;font:inherit;font-weight:750;cursor:pointer}
+button.secondary{background:#fff}button:disabled,.disabled{opacity:.55;cursor:not-allowed}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid #b48e00;outline-offset:2px}
+label{display:block;font-weight:700;margin:12px 0 5px}input[type=text],select,textarea{display:block;width:100%;min-height:44px;border:2px solid var(--line);border-radius:9px;padding:9px 12px;font:inherit;background:#fff}
+textarea{min-height:96px;resize:vertical}.step{display:grid;grid-template-columns:42px minmax(0,1fr);gap:14px}.stepno{border-radius:50%;background:var(--yellow);border:2px solid var(--ink);height:37px;width:37px;display:grid;place-items:center;font-weight:850}
+.subtle{font-size:14px;color:var(--secondary)}.tag{background:#eef0f3;border-radius:999px;padding:4px 11px;font-weight:750;font-size:13px}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.message{white-space:pre-wrap;overflow-wrap:anywhere;margin:11px 0;min-height:20px}
+progress{width:100%;height:11px;accent-color:var(--yellow)}.inbox-provider{border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}.inbox-provider h3{margin:0 0 6px}.summary{background:var(--ink);color:#fff}.summary .muted{color:#d4d5d8}.summary strong{color:var(--yellow)}
+.notice{padding:13px 15px;background:#fffbe3;border-left:5px solid var(--yellow);border-radius:8px;font-size:14px}
+.hide{display:none!important}.result{background:#f4f6f8;padding:15px;border-radius:10px;margin-top:12px;overflow-wrap:anywhere}
+.checkline{display:flex;gap:10px;align-items:flex-start;margin:12px 0}.checkline input{margin-top:6px}
+.footerline{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+@media(max-width:560px){main{padding:14px}.card{padding:17px}.step{grid-template-columns:33px minmax(0,1fr);gap:9px}.stepno{width:31px;height:31px}}
+</style></head><body>
+<main><div class="footerline"><a class="brand" href="/" aria-label="AirPlain home"><span><span class="ai">ai</span>r/Pl<span class="ai">ai</span>n</span><small>AI routes plus AI notes</small></a><button class="secondary hide" id="signout">Sign out</button></div>
+<h1>Your preflight</h1><p class="muted">Flight AP25 · Get your business ready for AI routes plus AI notes.</p>
+<div class="card" id="opening" role="status" aria-live="polite"><h2>Checking your invitation...</h2><p id="gate-note">This setup is only available to approved seat applicants.</p></div>
+<div id="ready" class="hide">
+<section class="card summary"><div class="footerline"><h2 id="customer">Welcome aboard</h2><span class="tag">PILOT SETUP</span></div><p class="muted">Your application is approved. There is no payment or live message automation here.</p><div class="footerline"><p><strong id="progress-label">0 of 4</strong> steps completed</p><span id="progress-percent">0%</span></div><progress id="progress" max="4" value="0" aria-label="Preflight completion"></progress></section>
+<section class="card step" aria-labelledby="step1"><span class="stepno">1</span><div>
+<h2 id="step1">Connect your first inbox</h2><p class="muted">Choose Gmail or Outlook/Microsoft 365. Both connect through their own secure sign-in and request read-only email access. You may connect one or both.</p>
+<div class="inbox-provider"><h3>Gmail</h3><p id="gmail-status" role="status">Checking Gmail setup...</p>
+<div class="row"><a class="button" id="gmail-connect" href="/api/setup/gmail/start">Connect Gmail</a><button class="secondary hide" id="gmail-disconnect">Disconnect Gmail</button></div></div>
+<div class="inbox-provider"><h3>Outlook / Microsoft 365</h3><p id="microsoft-status" role="status">Checking Microsoft setup...</p>
+<div class="row"><a class="button" id="microsoft-connect" href="/api/setup/microsoft/start">Connect Outlook / Microsoft 365</a><button class="secondary hide" id="microsoft-disconnect">Disconnect Microsoft</button></div></div>
+<p id="provider-feedback" class="message" role="alert"></p>
+<p class="subtle">Either verified inbox completes step one. Connecting does not import messages, send replies, or activate live automation during preflight.</p>
+</div></section>
+<section class="card step" aria-labelledby="step2"><span class="stepno">2</span><div><h2 id="step2">Set your routing preferences</h2>
+<p class="muted">Choose where each kind of message should go. These preferences are saved to your AirPlain setup.</p>
+<form id="routing-form"><div id="routing-fields"></div>
+<label for="special">Anything else AirPlain should know? (optional)</label><textarea id="special" maxlength="400" placeholder="For example: Always flag complaints for me."></textarea>
+<div class="row"><button type="submit">Save routing preferences</button><span id="routes-state" class="tag">Not saved</span></div><p id="routing-msg" class="message" role="status"></p></form>
+</div></section>
+<section class="card step" aria-labelledby="step3"><span class="stepno">3</span><div><h2 id="step3">Review and approve your AI rules</h2>
+<p>These safety rules apply during your pilot setup:</p>
+<div class="notice"><strong>Owner reviews actions.</strong> AirPlain must not send customer replies automatically, and urgent messages must be flagged for you. Nothing is activated for real customers during preflight.</div>
+<label for="rules-text">Additional instructions (optional)</label><textarea id="rules-text" maxlength="500" placeholder="Examples: Never promise a refund. Escalate scheduling conflicts."></textarea>
+<label class="checkline"><input type="checkbox" id="rules-consent"> <span>I approve these routing safety rules and understand that AirPlain will not automatically reply to customers.</span></label>
+<div class="row"><button id="approve-rules">Approve and save rules</button><span id="rules-state" class="tag">Not approved</span></div><p id="rules-msg" class="message" role="status"></p>
+</div></section>
+<section class="card step" aria-labelledby="step4"><span class="stepno">4</span><div><h2 id="step4">Run a sample message</h2>
+<p class="muted">Enter a fictional customer message (no private customer details). AirPlain will process it and explain the routing recommendation. It will never actually send a message.</p>
+<label for="sample">Example message</label><textarea id="sample" maxlength="1200" placeholder="Hi! I need to move my appointment to Friday."></textarea>
+<button id="run-test">Run a safe test</button><p id="test-msg" class="message" role="status"></p><div class="result hide" id="test-result" aria-live="polite"></div>
+</div></section>
+<section class="card"><h2 id="finish-title">Setup in progress</h2><p id="finish-text" class="muted">Complete all four steps. Nothing starts handling customer messages until AirPlain separately activates your account.</p></section>
+</div>
+</main>
+<script>
+(function(){
+ const $=id=>document.getElementById(id),gate=$("opening"),ready=$("ready");
+ const options=[["answer_now","Answer now"],["book_time","Book a time"],["flag_owner","Flag for owner"],["file_away","File away"]];
+ const categories=[["billing","Billing"],["appointments","Appointments"],["sales","Sales"],["general","General inquiries"]];
+ const states={};
+ for(const [id,title] of categories){
+   const label=document.createElement("label");label.htmlFor="route-"+id;label.textContent=title;
+   const select=document.createElement("select");select.id="route-"+id;select.required=true;
+   for(const [value,text] of options){const el=document.createElement("option");el.value=value;el.textContent=text;select.append(el);}
+   select.value=id==="appointments"?"book_time":id==="general"?"flag_owner":id==="sales"?"answer_now":"flag_owner";
+   $("routing-fields").append(label,select);
+ }
+ function msg(id,value){$(id).textContent=value}
+ async function api(method,path,data){
+   const resp=await fetch(path,{method,credentials:"same-origin",cache:"no-store",headers:data===undefined?{}:{"content-type":"application/json"},body:data===undefined?undefined:JSON.stringify(data)});
+   const json=await resp.json().catch(()=>({error:"The server returned an unreadable response."}));
+   if(!resp.ok)throw new Error(json.error||"The request failed.");
+   return json;
+ }
+ async function refresh(){
+   let status;
+   try{status=await api("GET","/api/setup/status");}catch(e){gate.classList.remove("hide");ready.classList.add("hide");msg("gate-note",e.message+" If your invitation is already used, ask AirPlain for a new link.");return;}
+   gate.classList.add("hide");ready.classList.remove("hide");$("signout").classList.remove("hide");
+   msg("customer",status.customer.name+" · "+status.customer.business);
+   const progress=status.progress;
+   msg("progress-label",progress.completed+" of 4");
+   msg("progress-percent",progress.completed*25+"%");
+   $("progress").value=progress.completed;
+   for(const [provider,label] of [["gmail","Gmail"],["microsoft","Outlook/Microsoft 365"]]){
+     const connection=status[provider],connect=$(provider+"-connect"),disconnect=$(provider+"-disconnect");
+     if(connection.connected){
+       msg(provider+"-status","Connected and verified: "+connection.address);
+       connect.classList.add("hide");disconnect.classList.remove("hide");
+     }else{
+       msg(provider+"-status",connection.available?"Not connected. "+label+" will ask you to authorize read-only access.":label+" is not yet configured by AirPlain.");
+       connect.classList.toggle("hide",!connection.available);disconnect.classList.add("hide");
+     }
+   }
+   if(status.preferences && status.preferences.billing){
+     for(const [id] of categories){if(status.preferences[id])$("route-"+id).value=status.preferences[id];}
+     $("special").value=status.preferences.special_instructions||"";
+     msg("routes-state","Saved");
+   }else{msg("routes-state","Not saved");}
+   $("rules-text").value=(status.rules.text||"").replace(/^Human review required\. Do not send customer replies automatically\. Always flag urgent messages\.( Additional instructions: )?/,"");
+   $("rules-consent").checked=Boolean(status.rules.approved_at);
+   msg("rules-state",status.rules.approved_at?"Approved":"Not approved");
+   if(status.last_test){
+     $("test-result").classList.remove("hide");
+     const r=status.last_test.result||{};
+     $("test-result").textContent="Last test ("+status.last_test.engine+"): "+(r.pick||"No recommendation")+". "+(r.explanation||"")+" No message was sent.";
+   }
+   if(progress.completed===4){
+     msg("finish-title","Preflight completed");
+     msg("finish-text","Your setup is saved and a real Workers AI sample test has succeeded. AirPlain still needs to activate live handling before any customer messages are processed.");
+   }else{
+     msg("finish-title","Setup in progress");
+     msg("finish-text","Complete the remaining steps. Customer messages will not be automatically processed or answered during preflight.");
+   }
+ }
+ async function claimIfInvited(){
+   const fragment=location.hash.match(/(?:^#|&)invite=([A-Za-z0-9_-]+)/);
+   if(fragment){
+     history.replaceState(null,"",location.pathname+location.search);
+     try{await api("POST","/api/setup/claim",{token:fragment[1]});}catch(e){msg("gate-note",e.message);return;}
+   }
+   const url=new URL(location.href),providerError=url.searchParams.get("error"),connected=url.searchParams.get("connected");
+   if(providerError||connected){
+     url.searchParams.delete("error");url.searchParams.delete("connected");
+     history.replaceState(null,"",url.pathname+url.search);
+   }
+   await refresh();
+   if(providerError)msg("provider-feedback","Connection was not completed ("+providerError.replace(/[^a-z_]/g," ").replaceAll("_"," ")+"). Please check the provider permissions and try again.");
+   if(connected)msg("provider-feedback",connected==="microsoft"?"Microsoft mailbox authorization verified.":"Gmail authorization verified.");
+ }
+ $("routing-form").addEventListener("submit",async e=>{
+   e.preventDefault();
+   const routes=Object.fromEntries(categories.map(([id])=>[id,$("route-"+id).value]));
+   try{const r=await api("POST","/api/setup/preferences",{routes,special_instructions:$("special").value});msg("routing-msg",r.message);await refresh();}
+   catch(err){msg("routing-msg",err.message);}
+ });
+ $("approve-rules").addEventListener("click",async()=>{
+   if(!$("rules-consent").checked){msg("rules-msg","Please check the approval box first.");return;}
+   try{const r=await api("POST","/api/setup/rules",{approve:true,instructions:$("rules-text").value});msg("rules-msg",r.message);await refresh();}
+   catch(err){msg("rules-msg",err.message);}
+ });
+ $("run-test").addEventListener("click",async()=>{
+   msg("test-msg","Processing this example, with no customer-side action...");
+   try{
+     const r=await api("POST","/api/setup/test",{message:$("sample").value});
+     msg("test-msg",r.message);
+     $("test-result").classList.remove("hide");
+     $("test-result").textContent="Recommended: "+r.result.pick+" | Confidence: "+Math.round(r.result.confidence*100)+"% | "+r.result.explanation+" | Engine: "+r.result.engine+". No message was sent.";
+     await refresh();
+   }catch(err){msg("test-msg",err.message);}
+ });
+ $("gmail-disconnect").addEventListener("click",async()=>{
+   if(!confirm("Disconnect Gmail and revoke AirPlain's permission?"))return;
+   try{const r=await api("POST","/api/setup/gmail/disconnect",{});await refresh();msg("provider-feedback",r.message);}
+   catch(err){msg("provider-feedback",err.message);}
+ });
+ $("microsoft-disconnect").addEventListener("click",async()=>{
+   if(!confirm("Remove this Microsoft inbox from AirPlain? This removes AirPlain's stored authorization, but Microsoft consent must also be revoked in your Microsoft account if you want to withdraw it there."))return;
+   try{const r=await api("POST","/api/setup/microsoft/disconnect",{});await refresh();msg("provider-feedback",r.message);}
+   catch(err){msg("provider-feedback",err.message);}
+ });
+ $("signout").addEventListener("click",async()=>{
+   try{await api("POST","/api/setup/signout",{});}catch{}
+   ready.classList.add("hide");gate.classList.remove("hide");$("signout").classList.add("hide");msg("gate-note","Signed out. Ask AirPlain for a new invitation to sign in on another device.");
+ });
+ claimIfInvited();
+})();
+</script>
+</body></html>

@@ -24,6 +24,7 @@ import { decide } from "./engine.js";
 import { loadState, saveState, hashText, newId, defaultSettings } from "./store.js";
 import { describeChange } from "./paperTrail.js";
 import { calibrationReport } from "./calibration.js";
+import { handleOnboarding } from "./onboarding.js";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data, null, 2), {
@@ -43,6 +44,7 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
     try {
+      if (path.startsWith("/api/admin/") || path.startsWith("/api/setup/")) return await handleOnboarding(request, env, path);
       if (request.method === "GET" && path === "/api") return handleApiOverview(env);
       if (request.method === "GET" && path === "/health") return handleHealth(env);
       if (request.method === "POST" && path === "/decide") return await handleDecide(request, env);
@@ -83,6 +85,8 @@ function handleApiOverview(env) {
       "POST /settings": "Change settings. Every change is written to the paper trail.",
       "GET /changes": "Read the paper trail, newest first.",
       "POST /api/pilot-signup": "Request a pilot spot. Saves name, business, email, and where messages pile up.",
+      "GET /api/admin/applications": "Administrator-only review of seat applications.",
+      "GET /api/setup/status": "Approved customer onboarding status.",
     },
   });
 }

@@ -37,11 +37,10 @@ assert.ok(html.includes('id="bk-fare-picker"') && html.includes('data-select-far
 assert.ok(html.includes('data-change-fare') && html.includes('data-edit="fare"'), "Fare editing remains available");
 assert.ok(html.includes('if(interactive&&c!==tier)continue'), "Interactive seat map shows only chosen cabin");
 assert.ok(html.includes('aria-label="Request an Economy seat"'), "Every fare has accessible booking CTA");
-assert.ok(html.includes('aria-label="Your preflight checklist"'), "Preflight checklist is available after request");
-assert.ok(html.indexOf('id="preflight-list"') > html.indexOf('<section class="sec" id="signup" hidden>'), "Preflight checklist is nested in initially hidden confirmation");
-assert.ok(html.includes('document.getElementById("preflight-list").addEventListener("change",updatePreflight)'), "Preflight progress reflects checked steps");
-assert.ok(html.includes('resetPreflight();'), "Preflight is initialized only for confirmation");
-assert.ok(html.includes('Checking boxes does not connect your accounts or activate AI.'), "Checklist does not fake an integration");
+assert.ok(html.includes('aria-label="Preflight after approval"'), "Application confirmation only previews future onboarding");
+assert.ok(!html.includes('id="preflight-list"') && !html.includes('resetPreflight();'), "Application does not offer fake completion checkboxes");
+assert.ok(html.includes('Your actual progress will be saved in AirPlain.'), "Approval unlocks separately saved onboarding");
+assert.ok(html.indexOf('class="preflight-preview"') > html.indexOf('<section class="sec" id="signup" hidden>'), "Preflight preview stays behind successful submission");
 assert.ok(html.includes('No payment was taken and your seat is not yet confirmed.'), "Request success does not promise a purchase");
 
 assert.ok(html.includes('i<n-1?"done":i===n-1?"cur"'), "Progress indicator is indexed correctly");
@@ -56,3 +55,17 @@ const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert.ok(scripts.length >= 3, "Expected on-page scripts");
 for (const [i,script] of scripts.entries()) new Script(script[1], { filename: "airplain-site-script-" + i + ".js" });
 console.log("PASS AirPlain site bundle parses, scripts compile, and booking/header invariants hold");
+
+const admin = readFileSync(new URL("../site/admin/index.html", import.meta.url), "utf8");
+const setup = readFileSync(new URL("../site/setup/index.html", import.meta.url), "utf8");
+for (const [name,page] of [["admin",admin],["setup",setup]]) {
+  assert.ok(page.includes("AirPlain"), name+" page preserves product branding");
+  const code = [...page.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
+  for(const [i,tag] of code.entries())new Script(tag[1],{filename:name+"-script-"+i+".js"});
+}
+assert.ok(admin.includes('/api/admin/approve'), "Application admin approves through protected backend");
+assert.ok(setup.includes('/api/setup/status') && setup.includes('/api/setup/claim'), "Setup has saved session and invitation claiming");
+assert.ok(setup.includes('/api/setup/gmail/start'), "Gmail uses secure provider authorization");
+assert.ok(setup.includes('/api/setup/microsoft/start'), "Microsoft 365 has its own secure OAuth route");
+assert.ok(setup.includes('id="microsoft-disconnect"'), "Microsoft authorization can be disconnected");
+assert.ok(setup.includes('status[provider]'), "Both connected providers render independent verified statuses");
