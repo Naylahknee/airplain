@@ -46,7 +46,7 @@ assert.ok(html.includes('aria-label="Preflight after approval"'), "Application c
 assert.ok(!html.includes('id="preflight-list"') && !html.includes('resetPreflight();'), "Application does not offer fake completion checkboxes");
 assert.ok(html.includes('Your progress will be saved in AirPlain.'), "Approval unlocks separately saved onboarding");
 assert.ok(html.indexOf('class="preflight-preview"') > html.indexOf('<section class="sec" id="signup" hidden>'), "Preflight preview stays behind successful submission");
-assert.ok(html.includes('No payment was taken and your seat is not yet confirmed.'), "Request success does not promise a purchase");
+assert.ok(html.includes('No payment was taken. This is not a confirmed seat or subscription.'), "Request success does not promise a purchase");
 
 assert.ok(html.includes('i<n-1?"done":i===n-1?"cur"'), "Progress indicator is indexed correctly");
 
