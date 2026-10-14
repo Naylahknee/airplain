@@ -148,6 +148,8 @@ assert.equal(approval.data.status,"approved");
 assert.ok(approval.data.invitation_url.includes("/setup/#invite="));
 assert.equal((await call("/api/admin/approve","POST",{application_id:"not_found"},auth)).status,404);
 assert.equal((await call("/api/setup/status")).status,401,"unapproved visitors have no setup access");
+assert.equal((await call("/api/setup/status","GET",undefined,{cookie:"ap_setup_session=not_valid"})).status,401,
+  "A pending or unauthenticated visitor cannot retrieve a boarding pass");
 const token=approval.data.invitation_url.split("#invite=")[1];
 assert.ok(token.length>=40,"invitation is strong");
 assert.equal((await call("/api/setup/claim","POST",{token:"bad"})).status,400);
@@ -159,6 +161,8 @@ const cookies={cookie:claim.cookie.split(";")[0]};
 const customer=await call("/api/setup/status","GET",undefined,cookies);
 assert.equal(customer.status,200);
 assert.equal(customer.data.customer.business,"Lee Plumbing");
+assert.equal(customer.data.customer.application_reference,app.id,"Approved customer sees the saved application reference");
+assert.ok(customer.data.customer.approved_at,"Boarding pass carries the real administrator approval date");
 assert.equal(customer.data.progress.completed,0);
 assert.equal(customer.data.microsoft.connected,false);
 assert.equal(customer.data.microsoft.available,false);

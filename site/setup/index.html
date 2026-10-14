@@ -2,7 +2,7 @@
 <meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
 <title>AirPlain | Your preflight</title>
 <style>
-:root{--bg:#eef0f3;--yellow:#ffd60a;--ink:#16171a;--secondary:#55595f;--line:#e3e6ea;--card:#fff}
+:root{--bg:#eef0f3;--yellow:#ffd60a;--ink:#16171a;--secondary:#55595f;--line:#e3e6ea;--card:#fff;--stock:#fbfaf4;--rule:#dcd8c6;--yellow-2:#fff4b8;--dark:#16171a;--ink-3:#8b9097;--sans:system-ui,-apple-system,"Segoe UI",Helvetica,sans-serif;--print:"Share Tech Mono",ui-monospace,Menlo,Consolas,monospace}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
 main{max-width:1050px;margin:auto;padding:22px 18px 70px}a{color:inherit}.brand{display:flex;flex-direction:column;align-items:start;line-height:1;text-decoration:none;font-weight:900;font-size:27px}.ai{background:var(--yellow);border-radius:3px}.brand small{font-size:10px;margin-top:6px;letter-spacing:.04em}
 h1{font-size:clamp(29px,5vw,43px);line-height:1.15;margin:30px 0 6px}h2{font-size:clamp(20px,3vw,27px);margin:0 0 7px}h3{margin:0 0 12px}
@@ -20,12 +20,132 @@ progress{width:100%;height:11px;accent-color:var(--yellow)}.inbox-provider{borde
 .checkline{display:flex;gap:10px;align-items:flex-start;margin:12px 0}.checkline input{margin-top:6px}
 .footerline{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
 @media(max-width:560px){main{padding:14px}.card{padding:17px}.step{grid-template-columns:33px minmax(0,1fr);gap:9px}.stepno{width:31px;height:31px}}
-</style></head><body>
+
+/* The original AirPlain cream ticket is exclusively an APPROVED customer view. */
+/* boarding pass (paper ticket) */
+.bp{background:var(--stock);border-radius:14px;box-shadow:0 2px 0 #e7e3d3,0 18px 40px -16px rgba(22,23,26,.25);max-width:1020px;margin:0 auto;overflow:hidden;color:#24252a;position:relative}
+.bp-top{display:grid;grid-template-columns:1fr auto;align-items:stretch;border-bottom:1px solid var(--rule)}
+.bp-top .legal{padding:10px 16px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;line-height:1.35;color:#3d3f45}
+.bp-top .legal b{display:block;font-size:11px}
+.bp-brand{position:relative;background:var(--dark);color:#fff;display:flex;align-items:center;gap:10px;padding:0 18px 0 30px;clip-path:polygon(18px 0,100% 0,100% 100%,0 100%);font-weight:800;letter-spacing:.06em;text-transform:uppercase;font-size:14px}
+.bp-brand::before{content:"";position:absolute;left:12px;top:0;bottom:0;width:8px;background:var(--yellow);transform:skewX(-20deg)}
+.bp-brand svg{color:var(--yellow);transform:rotate(45deg)}
+.bp-body{display:grid}
+.bp-main{padding:14px 16px 18px;display:grid;gap:12px;min-width:0}
+.bp-title{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.bp-title .print{font-size:20px;letter-spacing:.3em;color:#5a5d63}
+.bp-title .tno{font-family:var(--print);font-size:13px;color:var(--ink-3)}
+.bp-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-top:1px solid var(--rule);border-left:1px solid var(--rule)}
+.cell{border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:6px 10px 6px;min-width:0;position:relative}
+.cell.w2{grid-column:span 2}
+.cell.band{background:var(--yellow-2)}
+.cell label,.cell .cl{display:block;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b6e74}
+.cell input,.cell select,.cell .cv{display:block;width:100%;font-family:var(--print);font-size:19px;text-transform:uppercase;color:#1b1c20;background:transparent;border:0;outline:none;padding:2px 0 0;min-height:32px;line-height:1.4;-webkit-appearance:none;appearance:none;border-radius:0}
+.cell input::placeholder{color:#b9b6a8}
+.cell select{cursor:pointer;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2316171a' stroke-width='2'/%3E%3C/svg%3E") right 2px center no-repeat;padding-right:22px}
+.cell:focus-within{background:#fff7c2;box-shadow:inset 0 0 0 2px var(--ink)}
+.cell.bad{box-shadow:inset 0 0 0 2px var(--red);background:#fdeceb}
+.cell .err{display:block;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--red);text-transform:none;line-height:1.3;padding-bottom:2px}
+.cell .err:empty{display:none}
+.route-cell{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.route-cell .cv{width:auto;font-size:clamp(24px,6vw,32px);min-height:0}
+.route-cell svg{font-size:22px;transform:rotate(90deg)}
+.bp-act{display:grid;gap:10px;margin-top:4px}
+.bp-act .fine{font-family:var(--print);font-size:13px;color:#6b6e74;text-align:center}
+.form-msg{border-radius:12px;padding:12px 14px;font-size:15px;font-weight:600;display:none}
+.form-msg.no{display:block;background:#fbe3df;color:#8a2219}
+.bp-perf{position:relative;height:0;border-top:2px dashed #cfcab4;margin:0}
+.bp-perf::before,.bp-perf::after{content:"";position:absolute;top:-12px;width:22px;height:22px;border-radius:50%;background:var(--bg)}
+.bp-perf::before{left:-11px}.bp-perf::after{right:-11px}
+.vbar{display:none}
+.bp-stub{padding:14px 16px 18px;display:grid;gap:10px;align-content:start}
+.bp-stub .cl{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b6e74}
+.bp-stub .cv{font-family:var(--print);font-size:17px;text-transform:uppercase;line-height:1.3;word-break:break-word}
+.stub-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stub-seat{display:flex;justify-content:space-between;align-items:end;gap:10px}
+.stub-seat .big{font-family:var(--print);font-size:44px;line-height:.9;border:1.5px solid var(--rule);padding:6px 10px 2px;background:var(--yellow-2)}
+.stub-tno{border:1.5px solid var(--rule);display:grid;grid-template-columns:1fr auto;align-items:stretch}
+.stub-tno span{font-family:var(--print);font-size:14px;padding:6px 8px;letter-spacing:.06em}
+.stub-tno span+span{border-left:1.5px solid var(--rule);font-size:11px;display:flex;align-items:center;text-align:center;line-height:1.1}
+.stub-nt{font-family:var(--print);font-size:13px;text-align:center;color:#5a5d63}
+
+
+.bp{max-width:none;text-align:left}
+.bp .bp-main{padding:18px 20px 20px}
+.bp .cell .cv{overflow-wrap:anywhere;word-break:break-word}
+.bp .bp-title .print{letter-spacing:.10em;font-size:clamp(16px,2.8vw,23px)}
+.bp .bp-title .tno{overflow-wrap:anywhere;font-size:11px;max-width:55%;text-align:right}
+.bp .bp-stub .stub-seat .big{font-size:clamp(20px,4vw,35px);overflow-wrap:anywhere}
+.ticket-intro{margin:26px 0 16px}
+.ticket-intro h2{font-size:clamp(25px,4vw,34px);margin:5px 0 4px}
+.ticket-eyebrow{font:13px var(--print);letter-spacing:.10em;color:var(--secondary)}
+.ticket-explainer{font-size:14px;color:var(--secondary);line-height:1.6}
+.ticket-ack{background:#fff7c8;border:1px solid #e4d79f;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.55}
+.ticket-actions{margin-top:18px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
+.ticket-actions .button{min-width:220px}
+.ticket-footnote{font-size:13px;color:var(--secondary);margin:0}
+.barcode{height:56px;background:repeating-linear-gradient(90deg,var(--ink) 0 2px,transparent 2px 4px,var(--ink) 4px 5px,transparent 5px 8px,var(--ink) 8px 11px,transparent 11px 12px,var(--ink) 12px 13px,transparent 13px 16px,var(--ink) 16px 17px,transparent 17px 19px,var(--ink) 19px 22px,transparent 22px 25px)}
+.approved-ticket{margin:0 auto 24px}
+.approved-ticket .bp-brand svg{height:21px;width:21px;fill:currentColor}
+.approved-ticket .route-cell{align-items:center}
+.approved-ticket .route-cell svg{height:23px;width:23px;fill:currentColor;color:var(--ink)}
+@media(max-width:660px){.bp .bp-main{padding:13px 12px}.bp .bp-stub{padding:15px}.bp .cell .cv{font-size:clamp(13px,3vw,19px)}.bp .route-cell .cv{font-size:23px}.bp .stub-tno span{overflow-wrap:anywhere;font-size:11px}.ticket-actions .button{width:100%}.bp-brand{font-size:11px;padding:5px 10px 5px 25px}}
+</style><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap"></head><body>
 <main><div class="footerline"><a class="brand" href="/" aria-label="AirPlain home"><span><span class="ai">ai</span>r/Pl<span class="ai">ai</span>n</span><small>AI routes plus AI notes</small></a><button class="secondary hide" id="signout">Sign out</button></div>
 <h1>Your preflight</h1><p class="muted">Flight AP25 · Get your business ready for AI routes plus AI notes.</p>
 <div class="card" id="opening" role="status" aria-live="polite"><h2>Checking your invitation...</h2><p id="gate-note">This setup is only available to approved seat applicants.</p></div>
 <div id="ready" class="hide">
-<section class="card summary"><div class="footerline"><h2 id="customer">Welcome aboard</h2><span class="tag">PILOT SETUP</span></div><p class="muted">Your application is approved. There is no payment or live message automation here.</p><div class="footerline"><p><strong id="progress-label">0 of 4</strong> steps completed</p><span id="progress-percent">0%</span></div><progress id="progress" max="4" value="0" aria-label="Preflight completion"></progress></section>
+<section class="approved-ticket" id="approved-ticket" aria-labelledby="ticket-heading">
+  <div class="ticket-intro">
+    <span class="ticket-eyebrow">FLIGHT AP25 · APPLICATION APPROVED</span>
+    <h2 id="ticket-heading">Welcome aboard.</h2>
+    <p class="muted">Your AirPlain seat application has been approved. Here is your personalized boarding pass for pilot preflight.</p>
+  </div>
+  <div class="bp" role="group" aria-label="Approved AirPlain pilot boarding pass">
+    <div class="bp-top">
+      <div class="legal"><b>Passenger ticket and baggage check</b>PILOT SETUP APPROVED · NO PAYMENT TAKEN</div>
+      <div class="bp-brand">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"></path></svg>AirPlain
+      </div>
+    </div>
+    <div class="bp-body">
+      <div class="bp-main">
+        <div class="bp-title"><span class="print">Boarding pass</span><span class="tno" id="ticket-ref">APPLICATION APPROVED</span></div>
+        <div class="bp-grid">
+          <div class="cell w2"><span class="cl">Passenger</span><span class="cv" id="ticket-name">PASSENGER</span></div>
+          <div class="cell"><span class="cl">Flight</span><span class="cv">AP25</span></div>
+          <div class="cell"><span class="cl">Cabin</span><span class="cv" id="ticket-cabin">—</span></div>
+          <div class="cell w2"><span class="cl">Business</span><span class="cv" id="ticket-business">—</span></div>
+          <div class="cell"><span class="cl">Approved</span><span class="cv" id="ticket-date">—</span></div>
+          <div class="cell"><span class="cl">Selected monthly fare</span><span class="cv" id="ticket-price">—</span></div>
+          <div class="cell w2 band"><span class="cl">Route</span><div class="route-cell"><span class="cv">NOISE</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"></path></svg><span class="cv">NOTES</span></div></div>
+          <div class="cell"><span class="cl">Seat (illustrative)</span><span class="cv" id="ticket-seat">TO BE ASSIGNED</span></div>
+        </div>
+        <p class="ticket-ack"><strong>Approved for pilot preflight · $0 paid.</strong> Your boarding pass confirms acceptance into the setup process, not a paid subscription. Seat numbers are decorative personalization, not inventory or guaranteed placement.</p>
+      </div>
+      <div class="bp-perf" aria-hidden="true"></div>
+      <div class="vbar" aria-hidden="true"><i></i></div>
+      <aside class="bp-stub" aria-label="Boarding pass ticket stub">
+        <div><span class="cl">Boarding pass · Passenger</span><div class="cv" id="stub-approved-name">PASSENGER</div></div>
+        <div class="stub-grid">
+          <div><span class="cl">From</span><div class="cv">NOISE</div></div>
+          <div><span class="cl">To</span><div class="cv">NOTES</div></div>
+          <div><span class="cl">Flight</span><div class="cv">AP25</div></div>
+          <div><span class="cl">Cabin</span><div class="cv" id="stub-approved-cabin">—</div></div>
+        </div>
+        <div class="stub-seat"><div><span class="cl">Seat preference</span><div class="cv">NON-INVENTORY</div></div><span class="big" id="stub-approved-seat">—</span></div>
+        <div class="stub-tno"><span id="stub-approved-ref">APPLICATION APPROVED</span><span>NOT A<br>PAID TICKET</span></div>
+        <div><div class="barcode" style="height:44px" aria-hidden="true"></div></div>
+        <div class="stub-nt">PILOT APPROVED · ARTWORK, NOT SCANNABLE</div>
+      </aside>
+    </div>
+  </div>
+  <div class="ticket-actions">
+    <p class="ticket-footnote">Your preflight setup starts below. No real customer messages are handled yet.</p>
+    <a href="#preflight-steps" class="button">Begin preflight setup →</a>
+  </div>
+</section>
+<section class="card summary" id="preflight-steps" aria-label="Your preflight progress"><div class="footerline"><h2 id="customer">Welcome aboard</h2><span class="tag">PILOT SETUP</span></div><p class="muted">Your application is approved. There is no payment or live message automation here.</p><div class="footerline"><p><strong id="progress-label">0 of 4</strong> steps completed</p><span id="progress-percent">0%</span></div><progress id="progress" max="4" value="0" aria-label="Preflight completion"></progress></section>
 <section class="card step" aria-labelledby="step1"><span class="stepno">1</span><div>
 <h2 id="step1">Connect your first inbox</h2><p class="muted">Choose Gmail or Outlook/Microsoft 365. Both connect through their own secure sign-in and request read-only email access. You may connect one or both.</p>
 <div class="inbox-provider"><h3>Gmail</h3><p id="gmail-status" role="status">Checking Gmail setup...</p>
@@ -81,6 +201,26 @@ progress{width:100%;height:11px;accent-color:var(--yellow)}.inbox-provider{borde
    try{status=await api("GET","/api/setup/status");}catch(e){gate.classList.remove("hide");ready.classList.add("hide");msg("gate-note",e.message+" If your invitation is already used, ask AirPlain for a new link.");return;}
    gate.classList.add("hide");ready.classList.remove("hide");$("signout").classList.remove("hide");
    msg("customer",status.customer.name+" · "+status.customer.business);
+   // Ticket data is accepted only from the authenticated, approved setup/status API.
+   const passenger=status.customer||{};
+   const fareClasses={economy:{title:"Economy",price:"$150/MO"},business:{title:"Business",price:"$300/MO"},first:{title:"First class",price:"$600/MO"}};
+   const fare=fareClasses[passenger.fare]||{title:"Unspecified",price:"Contact AirPlain"};
+   const surname=String(passenger.name||"").trim().split(/\s+/);
+   const passName=surname.length>1?(surname[surname.length-1]+"/"+surname.slice(0,-1).join(" ")).toUpperCase():(surname[0]||"PASSENGER").toUpperCase();
+   const approved=passenger.approved_at && !Number.isNaN(Date.parse(passenger.approved_at))
+     ?new Date(passenger.approved_at).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"Approved";
+   const seat=passenger.seat_preference||"To be assigned";
+   for(const id of ["ticket-name","stub-approved-name"])msg(id,passName);
+   for(const id of ["ticket-cabin","stub-approved-cabin"])msg(id,fare.title.toUpperCase());
+   msg("ticket-business",passenger.business||"");
+   msg("ticket-date",approved);
+   msg("ticket-price",fare.price);
+   msg("ticket-seat",seat);
+   msg("stub-approved-seat",passenger.seat_preference||"—");
+   const reference=passenger.application_reference||"APPLICATION APPROVED";
+   msg("ticket-ref",reference);
+   msg("stub-approved-ref",reference);
+
    const progress=status.progress;
    msg("progress-label",progress.completed+" of 4");
    msg("progress-percent",progress.completed*25+"%");
