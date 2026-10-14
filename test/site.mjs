@@ -27,15 +27,12 @@ assert.ok(html.includes('id="bk-submit"'), "Submit inside review dialog");
 assert.ok(html.includes('Request my '), "Request action instead of charge promise");
 assert.ok(html.includes("Due today: $0."), "Explicit no-payment disclosure");
 assert.ok(html.includes('tier:BK.tier,seat:BK.seat'), "Fare and seat preference sent to backend");
-assert.ok(html.includes('showTag(Object.assign({},data,{request_id:saved.request_id}))'), "Receipt uses the server-confirmed application reference");
-assert.ok(html.includes('id="bp"') && html.indexOf('id="bp"') > html.indexOf('id="tag-wrap"'), "Original cream boarding-pass receipt appears in confirmation");
-assert.ok(!html.includes('document.getElementById("bp").style.display="none"'), "Ticket is not hidden when request succeeds");
-assert.ok(html.includes('id="bp-name"') && html.includes('id="bp-business"') && html.includes('id="bp-class"'), "Ticket identifies applicant, business and fare");
-assert.ok(html.includes('id="stub-seat"') && html.includes('id="stub-ref"'), "Ticket stub shows optional seat preference and actual reference");
-assert.ok(html.includes('class="bp-perf"') && html.includes('height:44px'), "Ticket retains perforation and decorative barcode");
-assert.ok(html.includes('SEAT REQUEST RECEIVED · NOT A CONFIRMED TICKET'), "Ticket does not falsely claim a confirmed reservation");
-assert.ok(!html.includes('id="pilot"'), "No second obsolete application form inside ticket");
-assert.ok(html.indexOf('id="bp"') > html.indexOf('<section class="sec" id="signup" hidden>'), "Ticket is only in the initially hidden success section");
+assert.ok(html.includes('showTag(Object.assign({},data,{request_id:saved.request_id}))'), "Application receipt uses the server-saved reference");
+assert.ok(!html.includes('id="bp"'), "No boarding pass is shown or stored on the public application-received page");
+assert.ok(!html.includes('id="pilot"'), "Duplicate boarding-pass form is removed from the public booking page");
+assert.ok(html.includes('id="request-ref"'), "Request confirmation shows the actual application reference");
+assert.ok(html.includes('Boarding pass and preflight after approval'), "Boarding pass is promised after review");
+assert.ok(html.includes('Application received, awaiting approval.'), "Submitting a request does not claim approval");
 
 assert.ok(html.includes('id="flight-fares"'), "A single flight-selection section replaces old fare accordion");
 assert.equal((html.match(/data-book="(?:economy|business|first)"/g) || []).length, 3, "Each fare has exactly one booking button");
@@ -77,3 +74,10 @@ assert.ok(setup.includes('/api/setup/gmail/start'), "Gmail uses secure provider 
 assert.ok(setup.includes('/api/setup/microsoft/start'), "Microsoft 365 has its own secure OAuth route");
 assert.ok(setup.includes('id="microsoft-disconnect"'), "Microsoft authorization can be disconnected");
 assert.ok(setup.includes('status[provider]'), "Both connected providers render independent verified statuses");
+assert.ok(setup.indexOf('id="approved-ticket"') > setup.indexOf('id="ready" class="hide"'), "Ticket is protected behind approved customer access");
+assert.ok(setup.includes('class="bp-perf"') && setup.includes('class="barcode"'), "Original boarding pass art retains perforation and barcode");
+assert.ok(setup.includes('passenger.application_reference') && setup.includes('passenger.approved_at'), "Approved ticket uses server-backed application details");
+assert.ok(setup.includes('not a paid subscription') && setup.includes('$0 paid'), "Approved boarding pass does not represent a paid subscription");
+assert.ok(setup.includes('id="ticket-seat"'), "Optional seat preference is shown without invented inventory");
+assert.ok(setup.includes('href="#preflight-steps"'), "Boarding pass leads into real preflight");
+
