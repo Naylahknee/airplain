@@ -240,11 +240,14 @@ assert.equal((await call("/api/setup/status","GET",undefined,cookies,oauthEnv)).
 const disconnected=await call("/api/setup/microsoft/disconnect","POST",{},cookies,oauthEnv);
 assert.equal(disconnected.status,200);
 assert.equal(db.profiles.get(app.id).microsoft_refresh_encrypted,null,"Disconnect purges encrypted token");
+assert.equal((await call("/api/setup/status","GET",undefined,cookies,oauthEnv)).data.progress.completed,3,
+  "Disconnecting Microsoft must not remove first-inbox credit while Gmail remains connected");
+Object.assign(db.profiles.get(app.id),{gmail_address:null,gmail_connected_at:null});
 assert.equal((await call("/api/setup/status","GET",undefined,cookies,oauthEnv)).data.progress.completed,2,
-  "Disconnecting Microsoft removes completed inbox step when no other inbox exists");
-// A Gmail-only connection also works, as checked in the previous test.
+  "Disconnecting the only remaining inbox must remove first-inbox credit");
 Object.assign(db.profiles.get(app.id),{gmail_address:"jordan@example.com",gmail_connected_at:new Date().toISOString()});
-assert.equal((await call("/api/setup/status","GET",undefined,cookies,oauthEnv)).data.progress.completed,3);
+assert.equal((await call("/api/setup/status","GET",undefined,cookies,oauthEnv)).data.progress.completed,3,
+  "Either provider alone restores first-inbox completion");
 
 const badOrigin=await call("/api/setup/preferences","POST",{routes:validRoutes},{...cookies,origin:"https://attacker.example"});
 assert.equal(badOrigin.status,403,"cross-origin changes denied");
