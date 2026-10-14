@@ -103,19 +103,29 @@ async function adminList(db) {
   ).all();
   return respond({ok:true,applications:results.results || []});
 }
-async function adminChange(request,db,decision) {
+async function adminChange(request,db,decision,env) {
   const body = await bodyJson(request);
   const id = sanitizeText(body?.application_id,100);
   if (!id) return error("Choose an application.",400);
   const app = await db.prepare("SELECT id,name,business,email FROM pilot_signups WHERE id=?").bind(id).first();
   if (!app) return error("That application was not found.",404);
   if (decision==="decline") {
-    await db.prepare("INSERT INTO onboarding_profiles (signup_id,status,declined_at) VALUES (?,'declined',?) ON CONFLICT(signup_id) DO UPDATE SET status='declined',declined_at=excluded.declined_at,approved_at=NULL").bind(id,nowIso()).run();
+    // Disconnect local access on rejection, even if the OAuth revocation service is unreachable.
+    const previous=await db.prepare("SELECT gmail_refresh_encrypted FROM onboarding_profiles WHERE signup_id=?").bind(id).first();
+    let revokeWarning=null;
+    if(previous?.gmail_refresh_encrypted){
+      try{
+        const token=await decryptRefresh(previous.gmail_refresh_encrypted,env);
+        const response=await fetch("https://oauth2.googleapis.com/revoke",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({token})});
+        if(!response.ok && response.status!==400)revokeWarning="Customer should revoke AirPlain in Google Account permissions.";
+      }catch{revokeWarning="Customer should revoke AirPlain in Google Account permissions.";}
+    }
+    await db.prepare("INSERT INTO onboarding_profiles (signup_id,status,declined_at) VALUES (?,'declined',?) ON CONFLICT(signup_id) DO UPDATE SET status='declined',declined_at=excluded.declined_at,approved_at=NULL,gmail_address=NULL,gmail_refresh_encrypted=NULL,gmail_connected_at=NULL,last_test_at=NULL,last_test_engine=NULL,last_test_result=NULL").bind(id,nowIso()).run();
     await db.prepare("DELETE FROM onboarding_invites WHERE signup_id=?").bind(id).run();
     await db.prepare("DELETE FROM onboarding_sessions WHERE signup_id=?").bind(id).run();
     await db.prepare("DELETE FROM onboarding_oauth_states WHERE signup_id=?").bind(id).run();
     await audit(db,id,"application_declined");
-    return respond({ok:true,status:"declined"});
+    return respond({ok:true,status:"declined",warning:revokeWarning});
   }
   await db.prepare("INSERT INTO onboarding_profiles (signup_id,status,approved_at) VALUES (?,'approved',?) ON CONFLICT(signup_id) DO UPDATE SET status='approved',approved_at=excluded.approved_at,declined_at=NULL").bind(id,nowIso()).run();
   await db.prepare("DELETE FROM onboarding_invites WHERE signup_id=?").bind(id).run();
@@ -123,7 +133,7 @@ async function adminChange(request,db,decision) {
   await db.prepare("INSERT INTO onboarding_invites (id,signup_id,token_hash,expires_at,created_at) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(),id,digest,expires,nowIso()).run();
   await audit(db,id,"application_approved_invite_issued");
   // The raw invite is intentionally returned ONCE, never stored.
-  const origin = new URL(request.url).origin;
+  const origin = configuredOrigin(env) || new URL(request.url).origin;
   return respond({ok:true,status:"approved",customer:app.name,email:app.email,expires_at:expires,
     invitation_url:origin+"/setup/#invite="+token,
     instruction:"Copy this invitation and send it privately to the approved applicant. It expires in 7 days, can be used only once, and does not charge the customer."});
@@ -192,8 +202,15 @@ async function runSample(request,db,row,env) {
   return respond({ok:true,real_ai:aiReal,result:safeResult,
     message:aiReal?"Sample processed by Workers AI. No message was sent.":"This was a local fallback demonstration, not a verified AI run. Check the Workers AI binding before marking testing complete."});
 }
+function configuredOrigin(env) {
+  try{
+    const u=new URL(String(env.PUBLIC_BASE_URL||""));
+    if(u.protocol!=="https:" || u.pathname!=="/" || u.search || u.hash) return null;
+    return u.origin;
+  }catch{return null;}
+}
 function providerReady(env) {
-  return Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.OAUTH_ENCRYPTION_KEY && env.PUBLIC_BASE_URL);
+  return Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.OAUTH_ENCRYPTION_KEY && configuredOrigin(env));
 }
 async function keyFromEnv(env) {
   const raw=String(env.OAUTH_ENCRYPTION_KEY||"");
@@ -221,7 +238,8 @@ async function decryptRefresh(value,env) {
 function gmailRedirect(env) {
   return String(env.PUBLIC_BASE_URL||"").replace(/\/+$/,"")+"/api/setup/gmail/callback";
 }
-async function gmailStart(db,row,env) {
+async function gmailStart(request,db,row,env) {
+  if(configuredOrigin(env) && new URL(request.url).origin!==configuredOrigin(env))return error("Open preflight on the official AirPlain website to connect Gmail.",409);
   if(!providerReady(env) || !(await keyFromEnv(env)))return error("Gmail authorization is not configured yet. Please contact AirPlain.",503);
   const state=randomUrlToken(),verifier=randomUrlToken(),digest=await sha(state);
   await db.prepare("INSERT INTO onboarding_oauth_states (state_hash,signup_id,verifier,expires_at,created_at) VALUES (?,?,?,?,?)")
@@ -288,8 +306,8 @@ export async function handleOnboarding(request,env,path) {
   if(path.startsWith("/api/admin/")) {
     if(!authorizedAdmin(request,env))return error("Administrator access required.",401);
     if(method==="GET" && path==="/api/admin/applications")return adminList(db);
-    if(method==="POST" && path==="/api/admin/approve")return adminChange(request,db,"approve");
-    if(method==="POST" && path==="/api/admin/decline")return adminChange(request,db,"decline");
+    if(method==="POST" && path==="/api/admin/approve")return adminChange(request,db,"approve",env);
+    if(method==="POST" && path==="/api/admin/decline")return adminChange(request,db,"decline",env);
     return error("Unknown admin route.",404);
   }
   if(method==="GET" && path==="/api/setup/gmail/callback")return gmailCallback(request,db,env);
@@ -297,7 +315,7 @@ export async function handleOnboarding(request,env,path) {
   const row=await activeCustomer(request,db);
   if(!row)return error("You need an approved, active AirPlain setup invitation.",401);
   if(method==="GET" && path==="/api/setup/status")return respond(publicStatus(row,env));
-  if(method==="GET" && path==="/api/setup/gmail/start")return gmailStart(db,row,env);
+  if(method==="GET" && path==="/api/setup/gmail/start")return gmailStart(request,db,row,env);
   if(method==="POST" && path==="/api/setup/preferences")return savePreferences(request,db,row);
   if(method==="POST" && path==="/api/setup/rules")return approveRules(request,db,row);
   if(method==="POST" && path==="/api/setup/test")return runSample(request,db,row,env);
