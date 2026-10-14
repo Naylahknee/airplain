@@ -2,6 +2,9 @@
 
 AirPlain accepts **seat applications first**. No payment, subscription, inbox access, or confirmed seat is created by applying.
 
+**Ticket timing:** Immediately after a successful application, show only the flight arrival animation, luggage tag, application reference, and a locked preflight preview. After the owner explicitly approves the application, issue the one-use invitation. Only an approved customer who signs in via that invitation may see the personalized cream boarding pass on /setup/. That ticket confirms pilot preflight access, **not a paid subscription**, automatic message processing, or a reserved real-world seat. The original ticket perforation, barcode, AP25 number, NOISE → NOTES route, fare, and optional seat personalization remain intact.
+
+
 ## Journey
 
 1. The owner visits /admin/, enters the private AIRPLAIN_ADMIN_KEY, reviews applications, and chooses approve or decline.
