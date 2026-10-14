@@ -72,6 +72,9 @@ class MockD1 {
             Object.assign(self.profiles.get(args[2]),{routes_json:args[0],preferences_saved_at:args[1],
               rules_approved_at:null,last_test_at:null,last_test_engine:null,last_test_result:null});return {meta:{changes:1}};
           }
+          if(q.startsWith("UPDATE onboarding_profiles SET last_test_engine")){
+            Object.assign(self.profiles.get(args[3]),{last_test_engine:args[0],last_test_result:args[1],last_test_at:args[2]});return {meta:{changes:1}};
+          }
           if(q.startsWith("UPDATE onboarding_profiles SET rules_text")){
             Object.assign(self.profiles.get(args[2]),{rules_text:args[0],rules_approved_at:args[1],last_test_at:null,last_test_engine:null,last_test_result:null});return {meta:{changes:1}};
           }
@@ -131,6 +134,16 @@ assert.equal(rules.status,200);
 assert.equal((await call("/api/setup/status","GET",undefined,cookies)).data.progress.completed,2);
 assert.equal((await call("/api/setup/test","POST",{message:"Please reschedule this appointment"},cookies)).status,409,
   "Cannot fake an AI test before authorizing Gmail");
+assert.equal((await call("/api/setup/gmail/start","GET",undefined,cookies)).status,503,"Gmail cannot pretend to connect without OAuth keys");
+// Simulate an existing verified provider connection to test the honest stub fallback.
+Object.assign(db.profiles.get(app.id),{gmail_address:"jordan@example.com",gmail_connected_at:new Date().toISOString()});
+const demo=await call("/api/setup/test","POST",{message:"Please reschedule this appointment on Friday"},cookies);
+assert.equal(demo.status,200);
+assert.equal(demo.data.real_ai,false);
+assert.equal(demo.data.result.engine,"stub");
+assert.equal((await call("/api/setup/status","GET",undefined,cookies)).data.progress.completed,3,
+ "A demonstration using the stub must never show 4 of 4");
+assert.ok(!JSON.stringify(db.profiles.get(app.id)).includes("Please reschedule this appointment"),"Raw customer sample text is not saved");
 const badOrigin=await call("/api/setup/preferences","POST",{routes:validRoutes},{...cookies,origin:"https://attacker.example"});
 assert.equal(badOrigin.status,403,"cross-origin changes denied");
 const decline=await call("/api/admin/decline","POST",{application_id:app.id},auth);
