@@ -70,7 +70,7 @@ function audit(db,id,action) {
     .bind(crypto.randomUUID(), id, action, nowIso()).run();
 }
 function progressFromRow(row) {
-  const connected = Boolean(row.gmail_address && row.gmail_connected_at);
+  const connected = Boolean((row.gmail_address && row.gmail_connected_at) || (row.microsoft_address && row.microsoft_connected_at));
   const routes = Boolean(row.preferences_saved_at);
   const approved = Boolean(row.rules_approved_at);
   const tested = Boolean(row.last_test_at && row.last_test_engine === "workers-ai");
@@ -82,13 +82,13 @@ function publicStatus(row,env) {
   return {
     ok:true,
     customer: { name:row.name,business:row.business, fare:row.fare, seat_preference:row.preferred_seat || null },
-    gmail: { connected: Boolean(row.gmail_address && row.gmail_connected_at), address:row.gmail_address || null,
-      available: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.OAUTH_ENCRYPTION_KEY && env.PUBLIC_BASE_URL) },
+    gmail: { connected: Boolean(row.gmail_address && row.gmail_connected_at), address:row.gmail_address || null,available:providerReady(env) },
+    microsoft: { connected: Boolean(row.microsoft_address && row.microsoft_connected_at), address:row.microsoft_address || null,available:microsoftReady(env) },
     preferences:routes,
     rules: { text:row.rules_text || "", approved_at:row.rules_approved_at || null },
     last_test:row.last_test_at ? { engine:row.last_test_engine, result:JSON.parse(row.last_test_result || "{}"), at:row.last_test_at } : null,
     progress: progressFromRow(row),
-    notice:"No messages are imported, sent, or automatically handled during preflight. A connected Gmail account is authorized for read-only access only."
+    notice:"No messages are imported, sent, or automatically handled during preflight. Both provider permissions are read-only."
   };
 }
 async function bodyJson(request) {
@@ -111,7 +111,7 @@ async function adminChange(request,db,decision,env) {
   if (!app) return error("That application was not found.",404);
   if (decision==="decline") {
     // Disconnect local access on rejection, even if the OAuth revocation service is unreachable.
-    const previous=await db.prepare("SELECT gmail_refresh_encrypted FROM onboarding_profiles WHERE signup_id=?").bind(id).first();
+    const previous=await db.prepare("SELECT gmail_refresh_encrypted,microsoft_refresh_encrypted FROM onboarding_profiles WHERE signup_id=?").bind(id).first();
     let revokeWarning=null;
     if(previous?.gmail_refresh_encrypted){
       try{
@@ -120,7 +120,8 @@ async function adminChange(request,db,decision,env) {
         if(!response.ok && response.status!==400)revokeWarning="Customer should revoke AirPlain in Google Account permissions.";
       }catch{revokeWarning="Customer should revoke AirPlain in Google Account permissions.";}
     }
-    await db.prepare("INSERT INTO onboarding_profiles (signup_id,status,declined_at) VALUES (?,'declined',?) ON CONFLICT(signup_id) DO UPDATE SET status='declined',declined_at=excluded.declined_at,approved_at=NULL,gmail_address=NULL,gmail_refresh_encrypted=NULL,gmail_connected_at=NULL,last_test_at=NULL,last_test_engine=NULL,last_test_result=NULL").bind(id,nowIso()).run();
+    if(previous?.microsoft_refresh_encrypted)revokeWarning=[revokeWarning,"Ask the customer to withdraw AirPlain access in their Microsoft account permissions."].filter(Boolean).join(" ");
+    await db.prepare("INSERT INTO onboarding_profiles (signup_id,status,declined_at) VALUES (?,'declined',?) ON CONFLICT(signup_id) DO UPDATE SET status='declined',declined_at=excluded.declined_at,approved_at=NULL,gmail_address=NULL,gmail_refresh_encrypted=NULL,gmail_connected_at=NULL,microsoft_address=NULL,microsoft_refresh_encrypted=NULL,microsoft_connected_at=NULL,last_test_at=NULL,last_test_engine=NULL,last_test_result=NULL").bind(id,nowIso()).run();
     await db.prepare("DELETE FROM onboarding_invites WHERE signup_id=?").bind(id).run();
     await db.prepare("DELETE FROM onboarding_sessions WHERE signup_id=?").bind(id).run();
     await db.prepare("DELETE FROM onboarding_oauth_states WHERE signup_id=?").bind(id).run();
@@ -184,7 +185,7 @@ async function approveRules(request,db,row) {
   return respond({ok:true,message:"Rules approved and saved. AirPlain will not automatically respond to customers."});
 }
 async function runSample(request,db,row,env) {
-  if(!row.gmail_connected_at)return error("Connect Gmail before running your preflight test.",409);
+  if(!(row.gmail_connected_at || row.microsoft_connected_at))return error("Connect Gmail or Outlook/Microsoft 365 before running your preflight test.",409);
   if(!row.preferences_saved_at || !row.rules_approved_at)return error("Save routing preferences and approve the rules first.",409);
   const b=await bodyJson(request),sample=sanitizeText(b?.message,1200);
   if(sample.length<8)return error("Enter a short example customer message.",400);
@@ -211,6 +212,9 @@ function configuredOrigin(env) {
 }
 function providerReady(env) {
   return Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.OAUTH_ENCRYPTION_KEY && configuredOrigin(env));
+}
+function microsoftReady(env) {
+  return Boolean(env.MICROSOFT_CLIENT_ID && env.MICROSOFT_CLIENT_SECRET && env.OAUTH_ENCRYPTION_KEY && configuredOrigin(env));
 }
 async function keyFromEnv(env) {
   const raw=String(env.OAUTH_ENCRYPTION_KEY||"");
@@ -242,8 +246,8 @@ async function gmailStart(request,db,row,env) {
   if(configuredOrigin(env) && new URL(request.url).origin!==configuredOrigin(env))return error("Open preflight on the official AirPlain website to connect Gmail.",409);
   if(!providerReady(env) || !(await keyFromEnv(env)))return error("Gmail authorization is not configured yet. Please contact AirPlain.",503);
   const state=randomUrlToken(),verifier=randomUrlToken(),digest=await sha(state);
-  await db.prepare("INSERT INTO onboarding_oauth_states (state_hash,signup_id,verifier,expires_at,created_at) VALUES (?,?,?,?,?)")
-    .bind(digest,row.signup_id,verifier,new Date(Date.now()+10*60000).toISOString(),nowIso()).run();
+  await db.prepare("INSERT INTO onboarding_oauth_states (state_hash,signup_id,provider,verifier,expires_at,created_at) VALUES (?,?,?,?,?,?)")
+    .bind(digest,row.signup_id,"gmail",verifier,new Date(Date.now()+10*60000).toISOString(),nowIso()).run();
   const challenge=base64url(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(verifier))));
   const params=new URLSearchParams({
     client_id:env.GOOGLE_CLIENT_ID,redirect_uri:gmailRedirect(env),response_type:"code",
@@ -255,10 +259,13 @@ async function gmailStart(request,db,row,env) {
 async function gmailCallback(request,db,env) {
   const u=new URL(request.url),state=u.searchParams.get("state")||"",code=u.searchParams.get("code")||"";
   if(!/^[A-Za-z0-9_-]{32,128}$/.test(state)||!code || !providerReady(env))return Response.redirect(u.origin+"/setup/?error=authorization",302);
+  if(u.origin!==configuredOrigin(env))return error("Use AirPlain's official website to finish Gmail setup.",409);
   const digest=await sha(state);
-  const record=await db.prepare("SELECT o.state_hash,o.signup_id,o.verifier FROM onboarding_oauth_states o JOIN onboarding_profiles p ON p.signup_id=o.signup_id WHERE o.state_hash=? AND o.expires_at>? AND p.status='approved'").bind(digest,nowIso()).first();
-  if(!record)return Response.redirect(u.origin+"/setup/?error=expired",302);
-  await db.prepare("DELETE FROM onboarding_oauth_states WHERE state_hash=?").bind(digest).run();
+  const record=await db.prepare("SELECT o.state_hash,o.signup_id,o.verifier FROM onboarding_oauth_states o JOIN onboarding_profiles p ON p.signup_id=o.signup_id WHERE o.state_hash=? AND o.provider='gmail' AND o.expires_at>? AND p.status='approved'").bind(digest,nowIso()).first();
+  const customer=await activeCustomer(request,db);
+  if(!record || !customer || customer.signup_id!==record.signup_id)return Response.redirect(u.origin+"/setup/?error=expired",302);
+  const changed=await db.prepare("DELETE FROM onboarding_oauth_states WHERE state_hash=? AND provider='gmail'").bind(digest).run();
+  if(changed.meta && changed.meta.changes!==1)return Response.redirect(u.origin+"/setup/?error=expired",302);
   const tokenRes=await fetch("https://oauth2.googleapis.com/token",{
     method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},
     body:new URLSearchParams({code,client_id:env.GOOGLE_CLIENT_ID,client_secret:env.GOOGLE_CLIENT_SECRET,
