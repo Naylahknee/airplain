@@ -93,7 +93,7 @@ progress{width:100%;height:11px;accent-color:var(--yellow)}.inbox-provider{borde
 </style><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap"></head><body>
 <main><div class="footerline"><a class="brand" href="/" aria-label="AirPlain home"><span><span class="ai">ai</span>r/Pl<span class="ai">ai</span>n</span><small>AI routes plus AI notes</small></a><button class="secondary hide" id="signout">Sign out</button></div>
 <h1>Your preflight</h1><p class="muted">Flight AP25 · Get your business ready for AI routes plus AI notes.</p>
-<div class="card" id="opening" role="status" aria-live="polite"><h2>Checking your invitation...</h2><p id="gate-note">This setup is only available to approved seat applicants.</p></div>
+<div class="card" id="opening" role="status" aria-live="polite"><h2 id="gate-title">Checking your invitation...</h2><p id="gate-note">This setup is only available to approved seat applicants.</p><p class="muted gate-help" id="gate-help">Haven't booked yet? <a href="/#fares">Choose your fare</a>. Already booked? Your private invitation link arrives by email once your application is approved.</p></div>
 <div id="ready" class="hide">
 <section class="approved-ticket" id="approved-ticket" aria-labelledby="ticket-heading">
   <div class="ticket-intro">
@@ -198,7 +198,7 @@ progress{width:100%;height:11px;accent-color:var(--yellow)}.inbox-provider{borde
  }
  async function refresh(){
    let status;
-   try{status=await api("GET","/api/setup/status");}catch(e){gate.classList.remove("hide");ready.classList.add("hide");msg("gate-note",e.message+" If your invitation is already used, ask AirPlain for a new link.");return;}
+   try{status=await api("GET","/api/setup/status");}catch(e){gate.classList.remove("hide");ready.classList.add("hide");msg("gate-note",e.message+" If your invitation is already used, ask AirPlain for a new link.");var gt=$("gate-title");if(gt)gt.textContent="Your invitation is needed to board";return;}
    gate.classList.add("hide");ready.classList.remove("hide");$("signout").classList.remove("hide");
    msg("customer",status.customer.name+" · "+status.customer.business);
    // Ticket data is accepted only from the authenticated, approved setup/status API.
