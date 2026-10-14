@@ -6,7 +6,7 @@
   "name": "airplain",
   "scripts": {
     "dev": "wrangler dev --port 8787",
-    "test": "node test/run.mjs && node test/site.mjs"
+    "test": "node test/run.mjs && node test/site.mjs && node test/onboarding.mjs"
   },
   "type": "module",
   "version": "0.1.0"
