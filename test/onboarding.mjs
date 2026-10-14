@@ -17,6 +17,7 @@ class MockD1 {
       return {
         async first(){
           if(q.includes("FROM pilot_signups WHERE id=?"))return args[0]===app.id?app:null;
+          if(q.includes("FROM onboarding_profiles WHERE signup_id=?"))return self.profiles.get(args[0])||null;
           if(q.includes("FROM onboarding_invites i JOIN onboarding_profiles")) {
             for(const i of self.invites.values()){
               const p=self.profiles.get(i.signup_id);
