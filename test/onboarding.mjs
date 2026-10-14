@@ -78,7 +78,7 @@ class MockD1 {
           throw new Error("Unexpected run SQL: "+q);
         }
       };
-    }};
+    },async all(){return this.bind().all();}};
   }
 }
 const db=new MockD1();
