@@ -292,10 +292,21 @@ async function handlePilotSignup(request, env) {
   const business = sanitizeText(body.business, 150);
   const email = sanitizeText(body.email, 254).toLowerCase();
   const where = sanitizeText(body.where, 60);
+  // Pilot requests do not create a subscription or reserve seats.
+  const tier = sanitizeText(body.tier === undefined ? "business" : body.tier, 20).toLowerCase();
+  const seat = body.seat == null || body.seat === "" ? null : sanitizeText(body.seat, 4).toUpperCase();
+  const seatPreferences = {
+    economy: ["6D", "8A", "9B"],
+    business: ["3B", "4C", "5A"],
+    first: ["1C", "2A", "2D"],
+  };
 
   if (!name) throw bad("Please include your name so we know who is asking.");
   if (!business) throw bad("Please include your business name.");
   if (!isEmail(email)) throw bad("That email does not look right. Please check it and try again.");
+  if (!Object.hasOwn(seatPreferences, tier)) throw bad("Choose Economy, Business, or First class before sending your request.");
+  if (seat && !seatPreferences[tier].includes(seat)) throw bad("That seat preference does not match your selected fare.");
+  if (tier === "economy" && where === "All of it") throw bad("Economy includes one channel. Please choose Email, Texts, or DMs.");
 
   if (!env.AIRPLAIN_DB || typeof env.AIRPLAIN_DB.prepare !== "function") {
     const e = new Error("Pilot signups are not connected yet. Please try again later.");
@@ -306,13 +317,16 @@ async function handlePilotSignup(request, env) {
   const id = newId("signup");
   const now = new Date().toISOString();
   await env.AIRPLAIN_DB.prepare(
-    "INSERT INTO pilot_signups (id, name, business, email, where_piled_up, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+    "INSERT INTO pilot_signups (id, name, business, email, where_piled_up, fare, preferred_seat, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
   )
-    .bind(id, name, business, email, where || null, now)
+    .bind(id, name, business, email, where || null, tier, seat, now)
     .run();
 
   return json({
     ok: true,
+    request_id: id,
+    fare: tier,
+    preferred_seat: seat,
     message: "You're on the list. NaLonni will reply personally within two business days to schedule a 20-minute call.",
   });
 }
