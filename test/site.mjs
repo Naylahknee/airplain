@@ -26,7 +26,7 @@ assert.ok(!html.includes('id="st-skip"'), "No competing Skip action");
 assert.ok(html.includes('id="bk-submit"'), "Submit inside review dialog");
 assert.ok(html.includes('Request my '), "Request action instead of charge promise");
 assert.ok(html.includes("Due today: $0."), "Explicit no-payment disclosure");
-assert.ok(html.includes('fare:BK.tier,seat:BK.seat'), "Fare and seat preference sent to backend");
+assert.ok(html.includes('tier:BK.tier,seat:BK.seat'), "Fare and seat preference sent to backend");
 assert.ok(html.includes('showTag(data)'), "Receipt shown after successful request");
 assert.ok(html.includes('i<n-1?"done":i===n-1?"cur"'), "Progress indicator is indexed correctly");
 
