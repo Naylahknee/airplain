@@ -16,7 +16,10 @@ CREATE TABLE IF NOT EXISTS onboarding_profiles (
   last_test_at TEXT,
   gmail_address TEXT,
   gmail_refresh_encrypted TEXT,
-  gmail_connected_at TEXT
+  gmail_connected_at TEXT,
+  microsoft_address TEXT,
+  microsoft_refresh_encrypted TEXT,
+  microsoft_connected_at TEXT
 );
 CREATE TABLE IF NOT EXISTS onboarding_invites (
   id TEXT PRIMARY KEY,
@@ -39,6 +42,7 @@ CREATE TABLE IF NOT EXISTS onboarding_oauth_states (
   state_hash TEXT PRIMARY KEY,
   signup_id TEXT NOT NULL REFERENCES pilot_signups(id),
   verifier TEXT NOT NULL,
+  provider TEXT NOT NULL CHECK (provider IN ('gmail','microsoft')),
   expires_at TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
