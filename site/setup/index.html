@@ -14,7 +14,7 @@ label{display:block;font-weight:700;margin:12px 0 5px}input[type=text],select,te
 textarea{min-height:96px;resize:vertical}.step{display:grid;grid-template-columns:42px minmax(0,1fr);gap:14px}.stepno{border-radius:50%;background:var(--yellow);border:2px solid var(--ink);height:37px;width:37px;display:grid;place-items:center;font-weight:850}
 .subtle{font-size:14px;color:var(--secondary)}.tag{background:#eef0f3;border-radius:999px;padding:4px 11px;font-weight:750;font-size:13px}
 .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.message{white-space:pre-wrap;overflow-wrap:anywhere;margin:11px 0;min-height:20px}
-progress{width:100%;height:11px;accent-color:var(--yellow)}.summary{background:var(--ink);color:#fff}.summary .muted{color:#d4d5d8}.summary strong{color:var(--yellow)}
+progress{width:100%;height:11px;accent-color:var(--yellow)}.inbox-provider{border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}.inbox-provider h3{margin:0 0 6px}.summary{background:var(--ink);color:#fff}.summary .muted{color:#d4d5d8}.summary strong{color:var(--yellow)}
 .notice{padding:13px 15px;background:#fffbe3;border-left:5px solid var(--yellow);border-radius:8px;font-size:14px}
 .hide{display:none!important}.result{background:#f4f6f8;padding:15px;border-radius:10px;margin-top:12px;overflow-wrap:anywhere}
 .checkline{display:flex;gap:10px;align-items:flex-start;margin:12px 0}.checkline input{margin-top:6px}
@@ -27,10 +27,13 @@ progress{width:100%;height:11px;accent-color:var(--yellow)}.summary{background:v
 <div id="ready" class="hide">
 <section class="card summary"><div class="footerline"><h2 id="customer">Welcome aboard</h2><span class="tag">PILOT SETUP</span></div><p class="muted">Your application is approved. There is no payment or live message automation here.</p><div class="footerline"><p><strong id="progress-label">0 of 4</strong> steps completed</p><span id="progress-percent">0%</span></div><progress id="progress" max="4" value="0" aria-label="Preflight completion"></progress></section>
 <section class="card step" aria-labelledby="step1"><span class="stepno">1</span><div>
-<h2 id="step1">Connect your first inbox</h2><p class="muted">Authorize a Gmail inbox with Google's secure sign-in. AirPlain requests read-only Gmail permission. It cannot send, delete, or change your messages.</p>
-<p id="gmail-status">Checking provider setup...</p>
-<div class="row"><a class="button" id="gmail-connect" href="/api/setup/gmail/start">Connect Gmail</a><button class="secondary hide" id="gmail-disconnect">Disconnect Gmail</button></div>
-<p class="subtle">Connecting proves inbox access is authorized. Automatic message import and replies are not enabled during preflight.</p>
+<h2 id="step1">Connect your first inbox</h2><p class="muted">Choose Gmail or Outlook/Microsoft 365. Both connect through their own secure sign-in and request read-only email access. You may connect one or both.</p>
+<div class="inbox-provider"><h3>Gmail</h3><p id="gmail-status" role="status">Checking Gmail setup...</p>
+<div class="row"><a class="button" id="gmail-connect" href="/api/setup/gmail/start">Connect Gmail</a><button class="secondary hide" id="gmail-disconnect">Disconnect Gmail</button></div></div>
+<div class="inbox-provider"><h3>Outlook / Microsoft 365</h3><p id="microsoft-status" role="status">Checking Microsoft setup...</p>
+<div class="row"><a class="button" id="microsoft-connect" href="/api/setup/microsoft/start">Connect Outlook / Microsoft 365</a><button class="secondary hide" id="microsoft-disconnect">Disconnect Microsoft</button></div></div>
+<p id="provider-feedback" class="message" role="alert"></p>
+<p class="subtle">Either verified inbox completes step one. Connecting does not import messages, send replies, or activate live automation during preflight.</p>
 </div></section>
 <section class="card step" aria-labelledby="step2"><span class="stepno">2</span><div><h2 id="step2">Set your routing preferences</h2>
 <p class="muted">Choose where each kind of message should go. These preferences are saved to your AirPlain setup.</p>
@@ -82,12 +85,15 @@ progress{width:100%;height:11px;accent-color:var(--yellow)}.summary{background:v
    msg("progress-label",progress.completed+" of 4");
    msg("progress-percent",progress.completed*25+"%");
    $("progress").value=progress.completed;
-   if(status.gmail.connected){
-     msg("gmail-status","Connected and verified: "+status.gmail.address);
-     $("gmail-connect").classList.add("hide");$("gmail-disconnect").classList.remove("hide");
-   }else{
-     msg("gmail-status",status.gmail.available?"Not connected. Google will ask your permission.":"Gmail is not yet configured by AirPlain. You can save other preferences while waiting.");
-     $("gmail-connect").classList.toggle("hide",!status.gmail.available);$("gmail-disconnect").classList.add("hide");
+   for(const [provider,label] of [["gmail","Gmail"],["microsoft","Outlook/Microsoft 365"]]){
+     const connection=status[provider],connect=$(provider+"-connect"),disconnect=$(provider+"-disconnect");
+     if(connection.connected){
+       msg(provider+"-status","Connected and verified: "+connection.address);
+       connect.classList.add("hide");disconnect.classList.remove("hide");
+     }else{
+       msg(provider+"-status",connection.available?"Not connected. "+label+" will ask you to authorize read-only access.":label+" is not yet configured by AirPlain.");
+       connect.classList.toggle("hide",!connection.available);disconnect.classList.add("hide");
+     }
    }
    if(status.preferences && status.preferences.billing){
      for(const [id] of categories){if(status.preferences[id])$("route-"+id).value=status.preferences[id];}
@@ -116,8 +122,14 @@ progress{width:100%;height:11px;accent-color:var(--yellow)}.summary{background:v
      history.replaceState(null,"",location.pathname+location.search);
      try{await api("POST","/api/setup/claim",{token:fragment[1]});}catch(e){msg("gate-note",e.message);return;}
    }
-   if(location.search.includes("error="))msg("gate-note","Google did not complete authorization. Check your permissions and try connecting again.");
+   const url=new URL(location.href),providerError=url.searchParams.get("error"),connected=url.searchParams.get("connected");
+   if(providerError||connected){
+     url.searchParams.delete("error");url.searchParams.delete("connected");
+     history.replaceState(null,"",url.pathname+url.search);
+   }
    await refresh();
+   if(providerError)msg("provider-feedback","Connection was not completed ("+providerError.replace(/[^a-z_]/g," ").replaceAll("_"," ")+"). Please check the provider permissions and try again.");
+   if(connected)msg("provider-feedback",connected==="microsoft"?"Microsoft mailbox authorization verified.":"Gmail authorization verified.");
  }
  $("routing-form").addEventListener("submit",async e=>{
    e.preventDefault();
@@ -142,8 +154,13 @@ progress{width:100%;height:11px;accent-color:var(--yellow)}.summary{background:v
  });
  $("gmail-disconnect").addEventListener("click",async()=>{
    if(!confirm("Disconnect Gmail and revoke AirPlain's permission?"))return;
-   try{const r=await api("POST","/api/setup/gmail/disconnect",{});msg("gmail-status",r.message);await refresh();}
-   catch(err){msg("gmail-status",err.message);}
+   try{const r=await api("POST","/api/setup/gmail/disconnect",{});await refresh();msg("provider-feedback",r.message);}
+   catch(err){msg("provider-feedback",err.message);}
+ });
+ $("microsoft-disconnect").addEventListener("click",async()=>{
+   if(!confirm("Remove this Microsoft inbox from AirPlain? This removes AirPlain's stored authorization, but Microsoft consent must also be revoked in your Microsoft account if you want to withdraw it there."))return;
+   try{const r=await api("POST","/api/setup/microsoft/disconnect",{});await refresh();msg("provider-feedback",r.message);}
+   catch(err){msg("provider-feedback",err.message);}
  });
  $("signout").addEventListener("click",async()=>{
    try{await api("POST","/api/setup/signout",{});}catch{}
