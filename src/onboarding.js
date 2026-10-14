@@ -301,6 +301,89 @@ async function gmailDisconnect(db,row,env) {
   return respond({ok:true,message:"Gmail connection removed. No messages were imported or sent."});
 }
 
+
+// Microsoft Graph delegated, read-only email OAuth.
+// The Microsoft app registration must support work/school AND personal accounts.
+function microsoftRedirect(env) {
+  return configuredOrigin(env)+"/api/setup/microsoft/callback";
+}
+async function microsoftStart(request,db,row,env) {
+  if(!microsoftReady(env) || !(await keyFromEnv(env)))
+    return error("Outlook/Microsoft 365 authorization is not configured yet. Please contact AirPlain.",503);
+  if(new URL(request.url).origin!==configuredOrigin(env))
+    return error("Open preflight on the official AirPlain website to connect Outlook.",409);
+  const state=randomUrlToken(),verifier=randomUrlToken(),digest=await sha(state);
+  await db.prepare("INSERT INTO onboarding_oauth_states (state_hash,signup_id,provider,verifier,expires_at,created_at) VALUES (?,?,?,?,?,?)")
+    .bind(digest,row.signup_id,"microsoft",verifier,new Date(Date.now()+10*60000).toISOString(),nowIso()).run();
+  const challenge=base64url(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(verifier))));
+  const params=new URLSearchParams({
+    client_id:String(env.MICROSOFT_CLIENT_ID),response_type:"code",response_mode:"query",
+    redirect_uri:microsoftRedirect(env),
+    scope:"offline_access User.Read Mail.Read",state,
+    code_challenge:challenge,code_challenge_method:"S256",prompt:"select_account"
+  });
+  return Response.redirect("https://login.microsoftonline.com/common/oauth2/v2.0/authorize?"+params.toString(),302);
+}
+async function microsoftCallback(request,db,env) {
+  const u=new URL(request.url),base=configuredOrigin(env);
+  if(!microsoftReady(env) || !base || u.origin!==base)
+    return error("Microsoft sign-in is not configured for this website.",503);
+  const state=u.searchParams.get("state")||"",code=u.searchParams.get("code")||"";
+  if(!/^[A-Za-z0-9_-]{32,128}$/.test(state) || !code)
+    return Response.redirect(base+"/setup/?error=microsoft_authorization",302);
+  const digest=await sha(state);
+  const record=await db.prepare("SELECT o.state_hash,o.signup_id,o.verifier FROM onboarding_oauth_states o JOIN onboarding_profiles p ON p.signup_id=o.signup_id WHERE o.state_hash=? AND o.provider='microsoft' AND o.expires_at>? AND p.status='approved'")
+    .bind(digest,nowIso()).first();
+  const customer=await activeCustomer(request,db);
+  if(!record || !customer || customer.signup_id!==record.signup_id)
+    return Response.redirect(base+"/setup/?error=expired",302);
+  // One-time state: reject any authorization callback replay.
+  const consumed=await db.prepare("DELETE FROM onboarding_oauth_states WHERE state_hash=? AND provider='microsoft'").bind(digest).run();
+  if(consumed.meta && consumed.meta.changes!==1)
+    return Response.redirect(base+"/setup/?error=expired",302);
+  let tokens;
+  try{
+    const response=await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token",{
+      method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},
+      body:new URLSearchParams({
+        client_id:String(env.MICROSOFT_CLIENT_ID),client_secret:String(env.MICROSOFT_CLIENT_SECRET),
+        code,redirect_uri:microsoftRedirect(env),grant_type:"authorization_code",
+        code_verifier:record.verifier,scope:"offline_access User.Read Mail.Read"
+      })
+    });
+    if(!response.ok)return Response.redirect(base+"/setup/?error=microsoft_authorization",302);
+    tokens=await response.json();
+  }catch{return Response.redirect(base+"/setup/?error=microsoft_authorization",302);}
+  const granted=String(tokens.scope||"").toLowerCase().split(/\s+/);
+  const mailGranted=granted.some(x=>x==="mail.read" || x==="https://graph.microsoft.com/mail.read");
+  if(!tokens.access_token || !tokens.refresh_token || !mailGranted)
+    return Response.redirect(base+"/setup/?error=microsoft_permission",302);
+  // Verify mailbox access without reading or saving any real message.
+  let profile;
+  try{
+    const headers={authorization:"Bearer "+tokens.access_token};
+    const identity=await fetch("https://graph.microsoft.com/v1.0/me?$select=id,displayName,mail,userPrincipalName",{headers});
+    if(!identity.ok)return Response.redirect(base+"/setup/?error=microsoft_profile",302);
+    profile=await identity.json();
+    const mailbox=await fetch("https://graph.microsoft.com/v1.0/me/mailFolders/inbox?$select=id,displayName",{headers});
+    if(!mailbox.ok)return Response.redirect(base+"/setup/?error=microsoft_mailbox",302);
+  }catch{return Response.redirect(base+"/setup/?error=microsoft_profile",302);}
+  const address=sanitizeText(profile.mail||profile.userPrincipalName,254);
+  if(!address || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address))
+    return Response.redirect(base+"/setup/?error=microsoft_profile",302);
+  const cipher=await encryptRefresh(tokens.refresh_token,env);
+  await db.prepare("UPDATE onboarding_profiles SET microsoft_address=?,microsoft_refresh_encrypted=?,microsoft_connected_at=?,last_test_at=NULL,last_test_engine=NULL,last_test_result=NULL WHERE signup_id=? AND status='approved'")
+    .bind(address,cipher,nowIso(),record.signup_id).run();
+  await audit(db,record.signup_id,"microsoft_mail_read_authorized");
+  return Response.redirect(base+"/setup/?connected=microsoft",302);
+}
+async function microsoftDisconnect(db,row) {
+  await db.prepare("UPDATE onboarding_profiles SET microsoft_address=NULL,microsoft_refresh_encrypted=NULL,microsoft_connected_at=NULL,last_test_at=NULL,last_test_engine=NULL,last_test_result=NULL WHERE signup_id=?")
+    .bind(row.signup_id).run();
+  await audit(db,row.signup_id,"microsoft_connection_removed");
+  return respond({ok:true,message:"Outlook/Microsoft 365 disconnected from AirPlain. Its stored authorization was discarded. To withdraw the Microsoft consent itself, also remove AirPlain from your Microsoft account or organizational app permissions."});
+}
+
 // Return null for routes not owned here.
 export async function handleOnboarding(request,env,path) {
   const method=request.method;
@@ -318,15 +401,18 @@ export async function handleOnboarding(request,env,path) {
     return error("Unknown admin route.",404);
   }
   if(method==="GET" && path==="/api/setup/gmail/callback")return gmailCallback(request,db,env);
+  if(method==="GET" && path==="/api/setup/microsoft/callback")return microsoftCallback(request,db,env);
   if(method==="POST" && path==="/api/setup/claim")return claimInvite(request,db);
   const row=await activeCustomer(request,db);
   if(!row)return error("You need an approved, active AirPlain setup invitation.",401);
   if(method==="GET" && path==="/api/setup/status")return respond(publicStatus(row,env));
   if(method==="GET" && path==="/api/setup/gmail/start")return gmailStart(request,db,row,env);
+  if(method==="GET" && path==="/api/setup/microsoft/start")return microsoftStart(request,db,row,env);
   if(method==="POST" && path==="/api/setup/preferences")return savePreferences(request,db,row);
   if(method==="POST" && path==="/api/setup/rules")return approveRules(request,db,row);
   if(method==="POST" && path==="/api/setup/test")return runSample(request,db,row,env);
   if(method==="POST" && path==="/api/setup/gmail/disconnect")return gmailDisconnect(db,row,env);
+  if(method==="POST" && path==="/api/setup/microsoft/disconnect")return microsoftDisconnect(db,row);
   if(method==="POST" && path==="/api/setup/signout"){
     const digest=await sha(sessionToken(request));
     await db.prepare("DELETE FROM onboarding_sessions WHERE token_hash=?").bind(digest).run();
