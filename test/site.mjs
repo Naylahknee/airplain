@@ -28,6 +28,22 @@ assert.ok(html.includes('Request my '), "Request action instead of charge promis
 assert.ok(html.includes("Due today: $0."), "Explicit no-payment disclosure");
 assert.ok(html.includes('tier:BK.tier,seat:BK.seat'), "Fare and seat preference sent to backend");
 assert.ok(html.includes('showTag(data)'), "Receipt shown after successful request");
+
+assert.ok(html.includes('id="flight-fares"'), "A single flight-selection section replaces old fare accordion");
+assert.equal((html.match(/data-book="(?:economy|business|first)"/g) || []).length, 3, "Each fare has exactly one booking button");
+assert.ok(!html.includes('class="fx-grid"'), "The old expandable pricing grid is gone");
+assert.ok(!html.includes('function pickTier('), "The competing fare-selection state is removed");
+assert.ok(html.includes('id="bk-fare-picker"') && html.includes('data-select-fare="first"'), "Fare can be changed inside guided flow");
+assert.ok(html.includes('data-change-fare') && html.includes('data-edit="fare"'), "Fare editing remains available");
+assert.ok(html.includes('if(interactive&&c!==tier)continue'), "Interactive seat map shows only chosen cabin");
+assert.ok(html.includes('aria-label="Request an Economy seat"'), "Every fare has accessible booking CTA");
+assert.ok(html.includes('aria-label="Your preflight checklist"'), "Preflight checklist is available after request");
+assert.ok(html.indexOf('id="preflight-list"') > html.indexOf('<section class="sec" id="signup" hidden>'), "Preflight checklist is nested in initially hidden confirmation");
+assert.ok(html.includes('document.getElementById("preflight-list").addEventListener("change",updatePreflight)'), "Preflight progress reflects checked steps");
+assert.ok(html.includes('resetPreflight();'), "Preflight is initialized only for confirmation");
+assert.ok(html.includes('Checking boxes does not connect your accounts or activate AI.'), "Checklist does not fake an integration");
+assert.ok(html.includes('No payment was taken and your seat is not yet confirmed.'), "Request success does not promise a purchase");
+
 assert.ok(html.includes('i<n-1?"done":i===n-1?"cur"'), "Progress indicator is indexed correctly");
 
 for (const id of ["b-name","b-business","b-email","b-where"]) {
