@@ -32,13 +32,16 @@ npx wrangler dev --port 8787   # serves it locally at http://localhost:8787
 ### POST /api/pilot-signup
 
 ```json
-{ "name": "Jane Doe", "business": "Doe's Bakery", "email": "jane@doesbakery.com", "where": "Email" }
+{ "name": "Jane Doe", "business": "Doe's Bakery", "email": "jane@doesbakery.com", "where": "Email", "tier": "economy", "seat": "6D" }
 ```
 
-Saves a pilot spot request to the `pilot_signups` table in the `airplain`
-D1 database. `name`, `business`, and `email` are required; `email` must
-look like an email address. Only those four fields are ever stored, plus
-an id and timestamp. Bad input gets a 400 with a plain-English message.
+Saves a pilot request to the `pilot_signups` table in the `airplain` D1
+database. `name`, `business`, and `email` are required, and `email` must
+look like an email address. Records the chosen fare and optional seat
+*preference* together with the contact fields. A request is **not** a paid
+subscription or a confirmed seat. Bad input gets a 400 with a plain-English
+message. Economy requests may select only one channel. Older clients that
+omit `tier` continue to default to Business.
 
 ### POST /decide
 
@@ -124,3 +127,20 @@ binding only exists on a real deploy.
 - [ ] Run `node test/run.mjs` again after the switch
 - [ ] Exercise the Workers AI path once and confirm allowed-list enforcement holds
 - [ ] Get NaLonni's explicit approval before deploying (her rule)
+
+## Booking-flow and deployment notes (October 2026)
+
+The visual website is stored inside the bundled template in `site/index.html`.
+The underlying font resources and existing page sections remain unchanged.
+
+- Header, hero and footer booking links point to fare comparison. Fare cards start
+  a single guided flow: trip summary, contact details, optional seat preference,
+  and final review.
+- The final action is a **pilot request**; due today is $0. No payment
+  processing or recurring billing is implemented.
+- Only after the API confirms success does the request receipt/flight animation
+  appear. A preferred seat is not inventory that has been reserved.
+- Run the new `migrations/0002_booking_preferences.sql` against the **target D1
+  database before deploying updated `src/worker.js`**. Do not deploy the new
+  worker against an un-migrated live database.
+- Review locally and get explicit approval before any production deployment.
