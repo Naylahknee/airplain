@@ -44,7 +44,7 @@ assert.ok(html.includes('if(interactive&&c!==tier)continue'), "Interactive seat 
 assert.ok(html.includes('aria-label="Request an Economy seat"'), "Every fare has accessible booking CTA");
 assert.ok(html.includes('aria-label="Preflight after approval"'), "Application confirmation only previews future onboarding");
 assert.ok(!html.includes('id="preflight-list"') && !html.includes('resetPreflight();'), "Application does not offer fake completion checkboxes");
-assert.ok(html.includes('Your actual progress will be saved in AirPlain.'), "Approval unlocks separately saved onboarding");
+assert.ok(html.includes('Your progress will be saved in AirPlain.'), "Approval unlocks separately saved onboarding");
 assert.ok(html.indexOf('class="preflight-preview"') > html.indexOf('<section class="sec" id="signup" hidden>'), "Preflight preview stays behind successful submission");
 assert.ok(html.includes('No payment was taken and your seat is not yet confirmed.'), "Request success does not promise a purchase");
 
