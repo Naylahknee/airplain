@@ -1,0 +1,13 @@
+# Security headers for AirPlain's static pages (landing, /admin/, /setup/).
+# Workers Static Assets serves these files directly without running the
+# worker, so headers for them live here, not in worker.js. The worker sets
+# the same headers on every API and error response it sends.
+# (The CSP allows the pages' inline scripts/styles plus Google Fonts and
+# nothing else. Update here if the pages gain new sources.)
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Strict-Transport-Security: max-age=31536000
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'

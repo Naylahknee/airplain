@@ -4,7 +4,7 @@
 // are returned by the API. Live provider connections require Cloudflare secrets.
 import { decide } from "./engine.js";
 import { defaultSettings } from "./store.js";
-import { sanitizeText } from "./guardrails.js";
+import { sanitizeText, securityHeaders } from "./guardrails.js";
 
 const MS_DAY = 86400000;
 const ROUTES = ["answer_now", "book_time", "flag_owner", "file_away"];
@@ -12,7 +12,7 @@ const COOKIE = "ap_setup_session";
 
 function respond(value, status = 200, extras = {}) {
   return new Response(JSON.stringify(value), {
-    status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", ...extras },
+    status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...securityHeaders(false), ...extras },
   });
 }
 function error(message, status = 400) { return respond({ ok: false, error: message }, status); }

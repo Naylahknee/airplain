@@ -28,6 +28,35 @@ export function sanitizeText(value, maxLen) {
   return s;
 }
 
+// Strip anything shaped like an HTML tag. Defense in depth: values saved to
+// the database must never contain markup, no matter how a future page
+// renders them. Not a substitute for escaping on render.
+export function stripTags(value) {
+  return String(value ?? "").replace(/<[^>]*>/g, "");
+}
+
+// Security headers for every response the worker sends.
+// page=true for the HTML landing/admin/setup pages (they use inline scripts
+// and styles plus Google Fonts, so the CSP allows those and nothing else).
+// API and error responses get the strictest policy: no active content at all.
+const API_CSP = "default-src 'none'; frame-ancestors 'none'";
+const PAGE_CSP =
+  "default-src 'self'; script-src 'self' 'unsafe-inline'; " +
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+  "font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data:; " +
+  "connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+
+export function securityHeaders(page = false) {
+  return {
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    "strict-transport-security": "max-age=31536000",
+    "content-security-policy": page ? PAGE_CSP : API_CSP,
+  };
+}
+
 // Clean the allowed-answers list: dedupe, drop empties, cap size,
 // and ALWAYS return them in the same deterministic order.
 // Fixed order matters: some models answer differently when options

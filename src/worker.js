@@ -15,22 +15,55 @@
 
 import {
   sanitizeText,
+  stripTags,
   normalizeOptions,
   actionFor,
   bad,
   LIMITS,
+  securityHeaders,
 } from "./guardrails.js";
 import { decide } from "./engine.js";
 import { loadState, saveState, hashText, newId, defaultSettings } from "./store.js";
 import { describeChange } from "./paperTrail.js";
 import { calibrationReport } from "./calibration.js";
 import { handleOnboarding } from "./onboarding.js";
+import { checkLimit, limitError } from "./ratelimit.js";
 
-function json(data, status = 200) {
+function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data, null, 2), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...securityHeaders(false), ...extraHeaders },
   });
+}
+
+// The router's error formatter. Intentional errors (the plain-English 400s,
+// 401s, 503s the code raises on purpose) keep their messages. Unexpected
+// failures (no status, or a bare 500) NEVER leak internals like database
+// messages or stack traces: they get a generic note instead.
+function errorResponse(e) {
+  const status = e.status || 500;
+  const expected = e.status !== undefined && e.status !== 500;
+  const message = expected
+    ? e.message || "Something went wrong."
+    : "Something went wrong on our side. Please try again in a moment.";
+  const extra = status === 429 && e.retryAfter ? { "retry-after": String(e.retryAfter) } : {};
+  return json({ error: message }, status, extra);
+}
+
+// Admin key check for the settings endpoint. Same constant-time comparison
+// the /api/admin/* routes use. The key must be at least 32 characters;
+// without a real key configured, nobody is authorized.
+function secureCompare(a, b) {
+  const aa = new TextEncoder().encode(a), bb = new TextEncoder().encode(b);
+  let diff = aa.length ^ bb.length;
+  for (let i = 0; i < Math.max(aa.length, bb.length); i++) diff |= (aa[i] || 0) ^ (bb[i] || 0);
+  return diff === 0;
+}
+
+function authorizedAdmin(request, env) {
+  const expected = String(env.AIRPLAIN_ADMIN_KEY || "");
+  const auth = request.headers.get("authorization") || "";
+  return expected.length >= 32 && auth.startsWith("Bearer ") && secureCompare(auth.slice(7), expected);
 }
 
 const ROUTES_HELP =
@@ -57,7 +90,7 @@ export default {
       if (request.method === "GET") return await handleAsset(request, env);
       return json({ error: "Unknown route. " + ROUTES_HELP }, 404);
     } catch (e) {
-      return json({ error: e.message || "Something went wrong." }, e.status || 500);
+      return errorResponse(e);
     }
   },
 };
@@ -66,7 +99,11 @@ async function handleAsset(request, env) {
   // The landing page lives in site/index.html, served by Workers static assets.
   // In plain node tests there is no ASSETS binding, so answer plainly instead.
   if (env.ASSETS && typeof env.ASSETS.fetch === "function") {
-    return env.ASSETS.fetch(request);
+    const res = await env.ASSETS.fetch(request);
+    const isPage = (res.headers.get("content-type") || "").includes("text/html");
+    const headers = new Headers(res.headers);
+    for (const [k, v] of Object.entries(securityHeaders(isPage))) headers.set(k, v);
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
   }
   return json({ error: "The landing page is served by static assets, which are not connected here. " + ROUTES_HELP }, 404);
 }
@@ -109,6 +146,11 @@ async function readJson(request) {
 }
 
 async function handleDecide(request, env) {
+  // Every /decide call runs the AI model, which costs money. Per-IP limits
+  // keep one script from running up the bill. Public demo use stays open.
+  const limit = checkLimit(request, "decide", { perMinute: 20, perDay: 200 });
+  if (!limit.ok) throw limitError(limit);
+
   const body = await readJson(request);
   if (!body || typeof body !== "object") {
     throw bad("Send JSON with question, kind, options, and context. " + ROUTES_HELP);
@@ -209,6 +251,12 @@ async function handleGetSettings(env) {
 }
 
 async function handlePostSettings(request, env) {
+  // Changing the decision brain is an owner-only action. No key, no change.
+  if (!authorizedAdmin(request, env)) {
+    const e = new Error("Administrator access required.");
+    e.status = 401;
+    throw e;
+  }
   const body = await readJson(request);
   if (!body || typeof body !== "object") throw bad("Send JSON with the settings to change, for example {\"thresholds\": {\"auto\": 0.9}}.");
   const state = await loadState(env);
@@ -288,14 +336,22 @@ function isEmail(s) {
 }
 
 async function handlePilotSignup(request, env) {
+  // Bots can flood an application list with junk. Per-IP limits keep the
+  // list human. (Cloudflare Turnstile would add stronger bot protection;
+  // that needs a site key from the Cloudflare dashboard first.)
+  const limit = checkLimit(request, "pilot-signup", { perMinute: 3, perDay: 10 });
+  if (!limit.ok) throw limitError(limit);
+
   const body = await readJson(request);
   if (!body || typeof body !== "object") {
     throw bad("Send your name, business name, and email as JSON to request a pilot spot.");
   }
-  const name = sanitizeText(body.name, 100);
-  const business = sanitizeText(body.business, 150);
-  const email = sanitizeText(body.email, 254).toLowerCase();
-  const where = sanitizeText(body.where, 60);
+  // Strip HTML tags before storing: markup must never reach the database,
+  // no matter how a future page renders these fields.
+  const name = stripTags(sanitizeText(body.name, 100));
+  const business = stripTags(sanitizeText(body.business, 150));
+  const email = stripTags(sanitizeText(body.email, 254)).toLowerCase();
+  const where = stripTags(sanitizeText(body.where, 60));
   // Pilot requests do not create a subscription or reserve seats.
   const tier = sanitizeText(body.tier === undefined ? "business" : body.tier, 20).toLowerCase();
   const seat = body.seat == null || body.seat === "" ? null : sanitizeText(body.seat, 4).toUpperCase();

@@ -82,13 +82,21 @@ def multipart(fields, files):
 
 def main():
     # 1. Build manifest for site/ assets.
+    # _headers / _redirects are NOT uploaded as assets: Workers consumes them
+    # as config (wrangler does the same). Uploading them as files would serve
+    # the raw rule files publicly and apply none of the rules.
     site = PROJECT / "site"
     manifest = {}
     blobs = {}
+    special = {}
     for f in sorted(site.rglob("*")):
         if not f.is_file():
             continue
         rel = "/" + f.relative_to(site).as_posix()
+        if rel in ("/_headers", "/_redirects", "/.assetsignore"):
+            special[rel] = f.read_text()
+            print(f"special file {rel} will be sent as assets config, not uploaded")
+            continue
         data = f.read_bytes()
         ext = f.suffix  # e.g. ".html"
         h = asset_hash(data, ext)
@@ -125,10 +133,19 @@ def main():
     print("completion jwt acquired:", completion_jwt[:20] + "...")
 
     # 4. PUT worker script: metadata + all modules. ALL bindings included.
+    # assets.config carries _headers/_redirects contents (never as assets).
+    assets_meta = {"jwt": completion_jwt}
+    assets_config = {}
+    if "/_headers" in special:
+        assets_config["_headers"] = special["/_headers"]
+    if "/_redirects" in special:
+        assets_config["_redirects"] = special["/_redirects"]
+    if assets_config:
+        assets_meta["config"] = assets_config
     metadata = {
         "main_module": "worker.js",
         "compatibility_date": "2026-10-01",
-        "assets": {"jwt": completion_jwt},
+        "assets": assets_meta,
         "bindings": [
             {"type": "assets", "name": "ASSETS"},
             {"type": "d1", "name": "AIRPLAIN_DB", "id": D1_ID},
@@ -138,7 +155,10 @@ def main():
     }
     src = PROJECT / "src"
     files = {}
-    for mod in ["worker.js", "guardrails.js", "engine.js", "store.js", "paperTrail.js", "calibration.js"]:
+    # Every module worker.js imports must be listed here, or the live
+    # worker fails to start. onboarding.js powers /api/admin/* and
+    # /api/setup/*; ratelimit.js guards /decide and /api/pilot-signup.
+    for mod in ["worker.js", "guardrails.js", "engine.js", "store.js", "paperTrail.js", "calibration.js", "onboarding.js", "ratelimit.js"]:
         files[mod] = (mod, "application/javascript+module", (src / mod).read_bytes())
     body, ctype = multipart({"metadata": ("application/json", json.dumps(metadata))}, files)
     res = check(call("PUT", f"/accounts/{ACCOUNT}/workers/scripts/{SCRIPT}",
